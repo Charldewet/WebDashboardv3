@@ -1,3 +1,5 @@
+import os
+os.makedirs('db', exist_ok=True)
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models import Base
