@@ -154,7 +154,7 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
   const [monthlyGpPercentData, setMonthlyGpPercentData] = useState([]);
   const [loadingMonthlyGpPercent, setLoadingMonthlyGpPercent] = useState(true);
   const [errorMonthlyGpPercent, setErrorMonthlyGpPercent] = useState(null);
-  const API_BASE_URL = 'http://192.168.0.104:5001';
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     console.log('[YearlyView] useEffect triggered. Selected Pharmacy:', selectedPharmacy, 'Selected Date:', selectedDate);

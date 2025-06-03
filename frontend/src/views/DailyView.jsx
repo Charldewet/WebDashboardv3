@@ -65,7 +65,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
   const [loadingCombinedChart, setLoadingCombinedChart] = useState(true);
   const [errorCombinedChart, setErrorCombinedChart] = useState(null);
 
-  const API_BASE_URL = 'http://192.168.0.104:5001';
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     if (!selectedPharmacy || !selectedDate) {
