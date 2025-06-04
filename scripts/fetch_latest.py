@@ -5,6 +5,7 @@ import datetime
 import shutil
 import argparse
 import psutil
+import pprint
 
 # Add project root to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +22,21 @@ TEMP_HTML_DIR = "/tmp/daily_html/"
 
 def main():
     print("=== fetch_latest.py started ===", flush=True)
+    now = datetime.datetime.now()
+    print(f"[DEBUG] Current time: {now} (local timezone)", flush=True)
+    print(f"[DEBUG] Current UTC time: {datetime.datetime.utcnow()} (UTC)", flush=True)
+    print(f"[DEBUG] sys.path: {sys.path}", flush=True)
+    print(f"[DEBUG] Environment variables (partial):", flush=True)
+    pprint.pprint(dict(list(os.environ.items())[:10]))  # Print first 10 env vars for brevity
+
+    # Ensure temp directory exists
+    if not os.path.exists(TEMP_HTML_DIR):
+        print(f"[DEBUG] Creating temp directory: {TEMP_HTML_DIR}", flush=True)
+        os.makedirs(TEMP_HTML_DIR, exist_ok=True)
+    else:
+        print(f"[DEBUG] Temp directory already exists: {TEMP_HTML_DIR}", flush=True)
+    print(f"[DEBUG] Files in {TEMP_HTML_DIR} at start: {os.listdir(TEMP_HTML_DIR) if os.path.exists(TEMP_HTML_DIR) else 'Directory does not exist'}", flush=True)
+
     print(f"[Memory] At script start: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
     parser = argparse.ArgumentParser(description="Fetch and parse latest pharmacy emails for all pharmacies.")
     parser.add_argument('--all', action='store_true', help='Fetch all emails (not just last 7 days)')
@@ -47,6 +63,8 @@ def main():
             email_count = len(email_iter)
             print(f"{pharmacy_name}: {email_count} emails found.")
             for filepath, report_date_obj in email_iter:
+                print(f"[DEBUG] About to process: filepath={filepath}, report_date_obj={report_date_obj}", flush=True)
+                print(f"[DEBUG] Files in {TEMP_HTML_DIR} before parsing: {os.listdir(TEMP_HTML_DIR) if os.path.exists(TEMP_HTML_DIR) else 'Directory does not exist'}", flush=True)
                 if filepath and os.path.exists(filepath):
                     print(f"[Memory] Before parsing {filepath}: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
                     print(f"Parsing report: {filepath} for date: {report_date_obj.strftime('%Y-%m-%d')}")
