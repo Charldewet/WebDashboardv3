@@ -4,6 +4,7 @@ import sys
 import datetime
 import shutil
 import argparse
+import psutil
 
 # Add project root to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +21,7 @@ TEMP_HTML_DIR = "/tmp/daily_html/"
 
 def main():
     print("=== fetch_latest.py started ===", flush=True)
+    print(f"[Memory] At script start: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
     parser = argparse.ArgumentParser(description="Fetch and parse latest pharmacy emails for all pharmacies.")
     parser.add_argument('--all', action='store_true', help='Fetch all emails (not just last 7 days)')
     args = parser.parse_args()
@@ -32,7 +34,8 @@ def main():
     latest_date = None
     for pharmacy_config in settings.MAILBOXES:
         pharmacy_name = pharmacy_config.get("name", pharmacy_config["code"])
-        print(f"{'[ALL]' if args.all else '[LATEST]'} Now fetching {pharmacy_name}...")
+        print(f"{'[ALL]' if args.all else '[LATEST]'} Now fetching {pharmacy_name}...", flush=True)
+        print(f"[Memory] Before fetching {pharmacy_name}: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
         processed_files_count = 0
         email_count = 0
         try:
@@ -45,9 +48,11 @@ def main():
             print(f"{pharmacy_name}: {email_count} emails found.")
             for filepath, report_date_obj in email_iter:
                 if filepath and os.path.exists(filepath):
+                    print(f"[Memory] Before parsing {filepath}: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
                     print(f"Parsing report: {filepath} for date: {report_date_obj.strftime('%Y-%m-%d')}")
                     try:
                         data = parse_html_daily(filepath)
+                        print(f"[Memory] After parsing {filepath}: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
                         data['pharmacy_code'] = pharmacy_config["code"]
                         data['report_date'] = report_date_obj
                         session.query(DailyReport).filter_by(
@@ -77,6 +82,7 @@ def main():
                 print(f"No new email reports found or processed for {pharmacy_name}.")
         except Exception as e_fetch:
             print(f"[ERROR] Could not fetch emails for {pharmacy_name}: {e_fetch}")
+        print(f"[Memory] After processing {pharmacy_name}: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
         print(f"Finished fetching emails for {pharmacy_name}.")
     if os.path.exists(TEMP_HTML_DIR) and not os.listdir(TEMP_HTML_DIR):
         try:
@@ -89,6 +95,7 @@ def main():
         print(f"{total_emails_processed} emails processed, all pharmacies now up to date until {latest_date.strftime('%Y-%m-%d') if latest_date else 'N/A'}.")
     else:
         print("No emails processed. Database may already be up to date.")
+    print(f"[Memory] At script end: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
 
 if __name__ == "__main__":
     main()
