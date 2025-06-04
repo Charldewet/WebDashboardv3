@@ -3,6 +3,7 @@ import os
 import sys
 import datetime
 import shutil
+import argparse
 
 # Add project root to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,6 +19,10 @@ from config import settings
 TEMP_HTML_DIR = "/tmp/daily_html/"
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--pharmacy', help='Pharmacy code to sync (e.g., winterton)')
+    args = parser.parse_args()
+
     session = create_session()
     print(f"Database: {settings.DATABASE_URI}")
 
@@ -25,6 +30,8 @@ def main():
     # by default to get all historical emails.
 
     for pharmacy_config in settings.MAILBOXES:
+        if args.pharmacy and pharmacy_config["code"] != args.pharmacy:
+            continue
         pharmacy_name = pharmacy_config.get("name", pharmacy_config["code"])
         print(f"Attempting to sync ALL emails for: {pharmacy_name} ({pharmacy_config.get('username')})")
         
