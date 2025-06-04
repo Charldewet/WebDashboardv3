@@ -6,6 +6,7 @@ import threading
 import time
 import os
 import psutil
+from flask_cors import CORS
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -431,6 +432,7 @@ def start_periodic_fetch_once():
 start_periodic_fetch_once()
 
 app = Flask(__name__)
+CORS(app, origins=["https://webdashfront.onrender.com"])
 app.register_blueprint(api_bp)
 
 if __name__ == "__main__":
