@@ -27,15 +27,21 @@ def main():
     print(f"Database: {settings.DATABASE_URI}")
 
     days_to_fetch = 7
+    total_emails_processed = 0
+    latest_date = None
     for pharmacy_config in settings.MAILBOXES:
         pharmacy_name = pharmacy_config.get("name", pharmacy_config["code"])
-        print(f"{'[ALL]' if args.all else '[LATEST]'} Fetching emails for: {pharmacy_name}")
+        print(f"{'[ALL]' if args.all else '[LATEST]'} Now fetching {pharmacy_name}...")
         processed_files_count = 0
+        email_count = 0
         try:
             if args.all:
                 email_iter = sync_all_emails(pharmacy_config)
             else:
                 email_iter = fetch_emails_last_n_days(pharmacy_config, days=days_to_fetch)
+            email_iter = list(email_iter)  # Materialize to count
+            email_count = len(email_iter)
+            print(f"{pharmacy_name}: {email_count} emails found.")
             for filepath, report_date_obj in email_iter:
                 if filepath:
                     print(f"Parsing report: {filepath} for date: {report_date_obj.strftime('%Y-%m-%d')}")
@@ -52,6 +58,9 @@ def main():
                         session.commit()
                         print(f"[SUCCESS] Report data saved to database for {pharmacy_config['code']} - {report_date_obj.strftime('%Y-%m-%d')}")
                         processed_files_count += 1
+                        total_emails_processed += 1
+                        if latest_date is None or report_date_obj > latest_date:
+                            latest_date = report_date_obj
                     except Exception as e:
                         session.rollback()
                         print(f"[ERROR] Failed to parse or save report {filepath}: {e}")
@@ -76,7 +85,10 @@ def main():
         except OSError as e_rmdir:
             print(f"[ERROR] Could not remove temp directory {TEMP_HTML_DIR}: {e_rmdir}")
     session.close()
-    print("All pharmacies processed.")
+    if total_emails_processed > 0:
+        print(f"{total_emails_processed} emails processed, all pharmacies now up to date until {latest_date.strftime('%Y-%m-%d') if latest_date else 'N/A'}.")
+    else:
+        print("No emails processed. Database may already be up to date.")
 
 if __name__ == "__main__":
     main()
