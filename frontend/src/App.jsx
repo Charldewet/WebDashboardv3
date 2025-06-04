@@ -34,6 +34,8 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [forceUpdateLoading, setForceUpdateLoading] = useState(false);
+  const [forceUpdateOutput, setForceUpdateOutput] = useState("");
+  const [showForceUpdateModal, setShowForceUpdateModal] = useState(false);
 
   const currentYear = new Date().getFullYear(); // Get current year
 
@@ -114,12 +116,15 @@ function App() {
 
   async function handleForceUpdate() {
     setForceUpdateLoading(true);
+    setForceUpdateOutput("");
+    setShowForceUpdateModal(true);
     try {
       const res = await fetch('/api/force_update', { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to force update');
-      alert('Force update started!');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.output || 'Failed to force update');
+      setForceUpdateOutput(data.output || 'Update complete.');
     } catch (err) {
-      alert('Error running force update: ' + err.message);
+      setForceUpdateOutput('Error running force update: ' + err.message);
     } finally {
       setForceUpdateLoading(false);
     }
@@ -428,6 +433,17 @@ function App() {
         {view === 'yearly' && <YearlyView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
         {view === 'stock' && <StockView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
       </div>
+      {showForceUpdateModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.45)', zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{ background: '#232b3b', color: '#fff', borderRadius: 12, padding: 32, minWidth: 340, maxWidth: 600, boxShadow: '0 2px 16px rgba(0,0,0,0.25)', position: 'relative' }}>
+            <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: '1.3rem', color: '#FF4500' }}>Force Update Progress</h2>
+            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '1.05rem', maxHeight: 350, overflowY: 'auto', background: '#181f2a', padding: 16, borderRadius: 8 }}>{forceUpdateOutput || (forceUpdateLoading ? 'Running update...' : '')}</pre>
+            <button onClick={() => setShowForceUpdateModal(false)} style={{ marginTop: 18, background: '#FF4500', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer', float: 'right' }} disabled={forceUpdateLoading}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
