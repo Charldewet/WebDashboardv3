@@ -1,4 +1,4 @@
-from flask import jsonify, request, Blueprint
+from flask import jsonify, request, Blueprint, Flask
 from app.models import DailyReport
 from app.db import create_session
 import subprocess
@@ -429,6 +429,9 @@ def start_periodic_fetch_once():
         threading.Thread(target=periodic_fetch, daemon=True).start()
 
 start_periodic_fetch_once()
+
+app = Flask(__name__)
+app.register_blueprint(api_bp)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000) 
