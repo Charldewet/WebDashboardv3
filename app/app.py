@@ -429,7 +429,7 @@ def start_periodic_fetch_once():
     ):
         threading.Thread(target=periodic_fetch, daemon=True).start()
 
-start_periodic_fetch_once()
+# start_periodic_fetch_once()
 
 app = Flask(__name__)
 CORS(app, origins=["https://webdashfront.onrender.com"])
