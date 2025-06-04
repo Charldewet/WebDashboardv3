@@ -401,7 +401,11 @@ def force_update():
 def periodic_fetch():
     while True:
         print("=== [Periodic Fetch] Loop Start ===", flush=True)
-        print(f"[Periodic Fetch] Memory usage before: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
+        mem_usage = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
+        print(f"[Periodic Fetch] Memory usage before: {mem_usage:.2f} MB", flush=True)
+        if mem_usage > 400:
+            print(f"[Periodic Fetch] Memory usage exceeded 400MB, exiting process to allow restart.", flush=True)
+            os._exit(1)
         try:
             result = subprocess.run(
                 ['python3', 'scripts/fetch_latest.py'],
@@ -414,9 +418,10 @@ def periodic_fetch():
                 print(result.stderr, flush=True)
         except Exception as e:
             print(f"[Periodic Fetch] Error: {e}", flush=True)
-        print(f"[Periodic Fetch] Memory usage after: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
-        print("=== [Periodic Fetch] Loop End, sleeping 60s ===", flush=True)
-        time.sleep(60)
+        mem_usage_after = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
+        print(f"[Periodic Fetch] Memory usage after: {mem_usage_after:.2f} MB", flush=True)
+        print("=== [Periodic Fetch] Loop End, sleeping 120s ===", flush=True)
+        time.sleep(120)
 
 # Start the periodic fetch thread on app import (works with Gunicorn/Render)
 def start_periodic_fetch_once():
@@ -429,7 +434,7 @@ def start_periodic_fetch_once():
     ):
         threading.Thread(target=periodic_fetch, daemon=True).start()
 
-# start_periodic_fetch_once()
+start_periodic_fetch_once()
 
 app = Flask(__name__)
 CORS(app, origins=["https://webdashfront.onrender.com"])
