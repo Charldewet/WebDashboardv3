@@ -423,18 +423,17 @@ def periodic_fetch():
         print("=== [Periodic Fetch] Loop End, sleeping 600s ===", flush=True)
         time.sleep(600)
 
-# Start the periodic fetch thread on app import (works with Gunicorn/Render)
-# def start_periodic_fetch_once():
-#     # Only start in the main process, not in Gunicorn worker forks
-#     if (
-#         os.environ.get("RUN_MAIN") == "true" or
-#         os.environ.get("WERKZEUG_RUN_MAIN") == "true" or
-#         os.environ.get("RENDER") == "true" or
-#         os.environ.get("FLASK_ENV") == "development"
-#     ):
-#         threading.Thread(target=periodic_fetch, daemon=True).start()
+def start_periodic_fetch_once():
+    # Only start in the main process, not in Gunicorn worker forks
+    if (
+        os.environ.get("RUN_MAIN") == "true" or
+        os.environ.get("WERKZEUG_RUN_MAIN") == "true" or
+        os.environ.get("RENDER") == "true" or
+        os.environ.get("FLASK_ENV") == "development"
+    ):
+        threading.Thread(target=periodic_fetch, daemon=True).start()
 
-# start_periodic_fetch_once()
+start_periodic_fetch_once()
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}})
