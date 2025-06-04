@@ -5,6 +5,7 @@ import subprocess
 import threading
 import time
 import os
+import psutil
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -398,7 +399,8 @@ def force_update():
 
 def periodic_fetch():
     while True:
-        print("=== [Periodic Fetch] Running fetch_latest.py ===", flush=True)
+        print("=== [Periodic Fetch] Loop Start ===", flush=True)
+        print(f"[Periodic Fetch] Memory usage before: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
         try:
             result = subprocess.run(
                 ['python3', 'scripts/fetch_latest.py'],
@@ -411,6 +413,8 @@ def periodic_fetch():
                 print(result.stderr, flush=True)
         except Exception as e:
             print(f"[Periodic Fetch] Error: {e}", flush=True)
+        print(f"[Periodic Fetch] Memory usage after: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
+        print("=== [Periodic Fetch] Loop End, sleeping 60s ===", flush=True)
         time.sleep(60)
 
 # Start the periodic fetch thread on app import (works with Gunicorn/Render)
