@@ -420,8 +420,8 @@ def periodic_fetch():
             print(f"[Periodic Fetch] Error: {e}", flush=True)
         mem_usage_after = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
         print(f"[Periodic Fetch] Memory usage after: {mem_usage_after:.2f} MB", flush=True)
-        print("=== [Periodic Fetch] Loop End, sleeping 120s ===", flush=True)
-        time.sleep(120)
+        print("=== [Periodic Fetch] Loop End, sleeping 600s ===", flush=True)
+        time.sleep(600)
 
 # Start the periodic fetch thread on app import (works with Gunicorn/Render)
 def start_periodic_fetch_once():
