@@ -2,6 +2,8 @@ from flask import jsonify, request, Blueprint
 from app.models import DailyReport
 from app.db import create_session
 import subprocess
+import threading
+import time
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -391,4 +393,25 @@ def force_update():
             return jsonify({"status": "error", "output": result.stderr}), 500
     except Exception as e:
         print("Exception in force_update:", str(e), flush=True)
-        return jsonify({"status": "error", "output": str(e)}), 500 
+        return jsonify({"status": "error", "output": str(e)}), 500
+
+def periodic_fetch():
+    while True:
+        print("=== [Periodic Fetch] Running fetch_latest.py ===", flush=True)
+        try:
+            result = subprocess.run(
+                ['python3', 'scripts/fetch_latest.py'],
+                capture_output=True,
+                text=True,
+                timeout=600
+            )
+            print(result.stdout, flush=True)
+            if result.stderr:
+                print(result.stderr, flush=True)
+        except Exception as e:
+            print(f"[Periodic Fetch] Error: {e}", flush=True)
+        time.sleep(60)
+
+if __name__ == "__main__":
+    threading.Thread(target=periodic_fetch, daemon=True).start()
+    app.run(host="0.0.0.0", port=5000) 
