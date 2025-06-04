@@ -437,7 +437,7 @@ def start_periodic_fetch_once():
 start_periodic_fetch_once()
 
 app = Flask(__name__)
-CORS(app, origins=["https://webdashfront.onrender.com"])
+CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}})
 app.register_blueprint(api_bp)
 
 if __name__ == "__main__":
