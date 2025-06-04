@@ -44,7 +44,7 @@ def main():
             email_count = len(email_iter)
             print(f"{pharmacy_name}: {email_count} emails found.")
             for filepath, report_date_obj in email_iter:
-                if filepath:
+                if filepath and os.path.exists(filepath):
                     print(f"Parsing report: {filepath} for date: {report_date_obj.strftime('%Y-%m-%d')}")
                     try:
                         data = parse_html_daily(filepath)
@@ -66,14 +66,13 @@ def main():
                         session.rollback()
                         print(f"[ERROR] Failed to parse or save report {filepath}: {e}")
                     finally:
-                        if os.path.exists(filepath):
-                            try:
-                                os.remove(filepath)
-                                print(f"Removed temporary file: {filepath}")
-                            except OSError as e_rm:
-                                print(f"[ERROR] Could not remove temp file {filepath}: {e_rm}")
+                        try:
+                            os.remove(filepath)
+                            print(f"Removed temporary file: {filepath}")
+                        except OSError as e_rm:
+                            print(f"[ERROR] Could not remove temp file {filepath}: {e_rm}")
                 else:
-                    print(f"[WARN] fetch_emails yielded None filepath for {report_date_obj}")
+                    print(f"[WARN] File {filepath} does not exist, skipping.")
             if processed_files_count == 0:
                 print(f"No new email reports found or processed for {pharmacy_name}.")
         except Exception as e_fetch:
