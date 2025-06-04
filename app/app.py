@@ -4,6 +4,7 @@ from app.db import create_session
 import subprocess
 import threading
 import time
+import os
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -412,6 +413,18 @@ def periodic_fetch():
             print(f"[Periodic Fetch] Error: {e}", flush=True)
         time.sleep(60)
 
+# Start the periodic fetch thread on app import (works with Gunicorn/Render)
+def start_periodic_fetch_once():
+    # Only start in the main process, not in Gunicorn worker forks
+    if (
+        os.environ.get("RUN_MAIN") == "true" or
+        os.environ.get("WERKZEUG_RUN_MAIN") == "true" or
+        os.environ.get("RENDER") == "true" or
+        os.environ.get("FLASK_ENV") == "development"
+    ):
+        threading.Thread(target=periodic_fetch, daemon=True).start()
+
+start_periodic_fetch_once()
+
 if __name__ == "__main__":
-    threading.Thread(target=periodic_fetch, daemon=True).start()
     app.run(host="0.0.0.0", port=5000) 
