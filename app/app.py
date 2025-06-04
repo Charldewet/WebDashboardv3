@@ -1,5 +1,5 @@
-from flask import jsonify, request, Blueprint, Flask
-from app.models import DailyReport
+from flask import jsonify, request, Blueprint, Flask, session
+from app.models import DailyReport, User
 from app.db import create_session
 import subprocess
 import threading
@@ -7,10 +7,94 @@ import time
 import os
 import psutil
 from flask_cors import CORS
+from flask_session import Session
+from datetime import datetime, timedelta
+from functools import wraps
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
+def login_required(f):
+    """Decorator to require login for protected routes"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        # Check if session has expired (24 hours)
+        if 'login_time' in session:
+            login_time = datetime.fromisoformat(session['login_time'])
+            if datetime.now() - login_time > timedelta(hours=24):
+                session.clear()
+                return jsonify({'error': 'Session expired'}), 401
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+@api_bp.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({'error': 'Username and password required'}), 400
+    
+    db_session = create_session()
+    user = db_session.query(User).filter(User.username == username).first()
+    
+    if user and user.check_password(password):
+        session['user_id'] = user.id
+        session['username'] = user.username
+        session['login_time'] = datetime.now().isoformat()
+        session.permanent = True
+        db_session.close()
+        return jsonify({'message': 'Login successful', 'username': user.username}), 200
+    
+    db_session.close()
+    return jsonify({'error': 'Invalid username or password'}), 401
+
+@api_bp.route('/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'message': 'Logout successful'}), 200
+
+@api_bp.route('/check_session', methods=['GET'])
+def check_session():
+    if 'user_id' not in session:
+        return jsonify({'authenticated': False}), 200
+    
+    # Check if session has expired (24 hours)
+    if 'login_time' in session:
+        login_time = datetime.fromisoformat(session['login_time'])
+        if datetime.now() - login_time > timedelta(hours=24):
+            session.clear()
+            return jsonify({'authenticated': False, 'reason': 'Session expired'}), 200
+    
+    return jsonify({
+        'authenticated': True, 
+        'username': session.get('username'),
+        'login_time': session.get('login_time')
+    }), 200
+
+def init_default_user():
+    """Initialize the default user 'Charl' with password 'Admin1'"""
+    db_session = create_session()
+    
+    # Check if user already exists
+    existing_user = db_session.query(User).filter(User.username == 'Charl').first()
+    if not existing_user:
+        user = User(username='Charl')
+        user.set_password('Admin1')
+        db_session.add(user)
+        db_session.commit()
+        print("Default user 'Charl' created successfully")
+    else:
+        print("Default user 'Charl' already exists")
+    
+    db_session.close()
+
 @api_bp.route('/turnover', methods=['GET'])
+@login_required
 def get_turnover():
     pharmacy = request.args.get('pharmacy')
     date = request.args.get('date')  # Optionally filter by date
@@ -24,6 +108,7 @@ def get_turnover():
     return jsonify({'pharmacy': pharmacy, 'turnover': turnover})
 
 @api_bp.route('/turnover_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -38,6 +123,7 @@ def get_turnover_for_range(start_date, end_date):
     return jsonify({'pharmacy': pharmacy, 'turnover': turnover})
 
 @api_bp.route('/daily_turnover_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -55,6 +141,7 @@ def get_daily_turnover_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_turnover": daily_turnover})
 
 @api_bp.route('/daily_avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -75,6 +162,7 @@ def get_daily_avg_basket_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_avg_basket": daily_avg_basket})
 
 @api_bp.route('/avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -100,6 +188,7 @@ def get_avg_basket_for_range(start_date, end_date):
     })
 
 @api_bp.route('/gp_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_gp_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -124,6 +213,7 @@ def get_gp_for_range(start_date, end_date):
     })
 
 @api_bp.route('/costs_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_costs_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -143,6 +233,7 @@ def get_costs_for_range(start_date, end_date):
     })
 
 @api_bp.route('/transactions_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_transactions_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -162,6 +253,7 @@ def get_transactions_for_range(start_date, end_date):
     })
 
 @api_bp.route('/dispensary_vs_total_turnover/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_dispensary_vs_total_turnover(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -183,6 +275,7 @@ def get_dispensary_vs_total_turnover(start_date, end_date):
     })
 
 @api_bp.route('/daily_purchases_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_purchases_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -200,6 +293,7 @@ def get_daily_purchases_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_purchases": daily_purchases})
 
 @api_bp.route('/daily_cost_of_sales_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_cost_of_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -217,6 +311,7 @@ def get_daily_cost_of_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_cost_of_sales": daily_cost_of_sales})
 
 @api_bp.route('/daily_cash_sales_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_cash_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -234,6 +329,7 @@ def get_daily_cash_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_cash_sales": daily_cash_sales})
 
 @api_bp.route('/daily_account_sales_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_account_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -251,6 +347,7 @@ def get_daily_account_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_account_sales": daily_account_sales})
 
 @api_bp.route('/daily_cod_sales_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_cod_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -268,6 +365,7 @@ def get_daily_cod_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_cod_sales": daily_cod_sales})
 
 @api_bp.route('/daily_cash_tenders_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_cash_tenders_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -285,6 +383,7 @@ def get_daily_cash_tenders_for_range(start_date, end_date):
     return jsonify({"daily_cash_tenders": daily_cash_tenders, "pharmacy": pharmacy})
 
 @api_bp.route('/daily_credit_card_tenders_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_credit_card_tenders_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -302,6 +401,7 @@ def get_daily_credit_card_tenders_for_range(start_date, end_date):
     return jsonify({"daily_credit_card_tenders": daily_credit_card_tenders, "pharmacy": pharmacy})
 
 @api_bp.route('/daily_scripts_dispensed_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_scripts_dispensed_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -319,6 +419,7 @@ def get_daily_scripts_dispensed_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_scripts_dispensed": daily_scripts})
 
 @api_bp.route('/daily_gp_percent_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_gp_percent_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -336,6 +437,7 @@ def get_daily_gp_percent_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_gp_percent": daily_gp_percent})
 
 @api_bp.route('/daily_dispensary_percent_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_dispensary_percent_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -359,6 +461,7 @@ def get_daily_dispensary_percent_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_dispensary_percent": daily_dispensary_percent})
 
 @api_bp.route('/daily_dispensary_turnover_for_range/<start_date>/<end_date>', methods=['GET'])
+@login_required
 def get_daily_dispensary_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -376,6 +479,7 @@ def get_daily_dispensary_turnover_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_dispensary_turnover": daily_dispensary_turnover})
 
 @api_bp.route('/force_update', methods=['POST'])
+@login_required
 def force_update():
     print("=== /api/force_update called ===", flush=True)
     try:
@@ -436,8 +540,32 @@ def start_periodic_fetch_once():
 start_periodic_fetch_once()
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}})
+# Session configuration
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'pharmacy-dashboard-secret-key-change-in-production')
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_KEY_PREFIX'] = 'pharmacy_session:'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+app.config['SESSION_FILE_DIR'] = os.environ.get('SESSION_DIR', '/tmp/flask_session')
+
+# Ensure session directory exists
+session_dir = app.config['SESSION_FILE_DIR']
+if not os.path.exists(session_dir):
+    os.makedirs(session_dir, exist_ok=True)
+
+# Initialize session
+Session(app)
+
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "https://webdashfront.onrender.com"]}}, supports_credentials=True, allow_headers=["Content-Type", "Authorization"], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 app.register_blueprint(api_bp)
 
+# Create database tables and initialize default user
+with app.app_context():
+    from app.db import engine
+    from app.models import Base
+    Base.metadata.create_all(engine)
+    init_default_user()
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000) 
+    app.run(host="0.0.0.0", port=5001) 

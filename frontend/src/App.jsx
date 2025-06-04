@@ -1,12 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
+import axios from 'axios';
 import DailyView from './views/DailyView';
 import MonthlyView from './views/MonthlyView';
 import YearlyView from './views/YearlyView';
 import StockView from './views/StockView';
+import LoginForm from './components/LoginForm';
 import './App.css';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import './calendar.css';
+
+// Configure axios to include credentials by default
+axios.defaults.withCredentials = true;
 
 const PHARMACY_OPTIONS = [
   { label: 'TLC Reitz', value: 'reitz' },
@@ -24,6 +29,13 @@ function getLastDayOfPreviousMonth() {
 }
 
 function App() {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // Existing state
   const [view, setView] = useState('daily');
   const [selectedPharmacy, setSelectedPharmacy] = useState(PHARMACY_OPTIONS[0].value);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -38,6 +50,104 @@ function App() {
   const [showForceUpdateModal, setShowForceUpdateModal] = useState(false);
 
   const currentYear = new Date().getFullYear(); // Get current year
+
+  // Check authentication status on app load
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/check_session', {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.authenticated) {
+        setIsAuthenticated(true);
+        setCurrentUser(data.username);
+      } else {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      }
+    } catch (error) {
+      console.error('Error checking auth status:', error);
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogin = async (username, password) => {
+    setLoginLoading(true);
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setIsAuthenticated(true);
+        setCurrentUser(data.username);
+      } else {
+        throw new Error(data.error || 'Login failed');
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+    } catch (error) {
+      console.error('Error logging out:', error);
+      // Force logout on client side even if server request fails
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+    }
+  };
+
+  // Show loading spinner while checking auth
+  if (authLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'var(--bg-gradient)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '4px solid var(--border-color)',
+          borderTop: '4px solid var(--accent-primary)',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }}></div>
+      </div>
+    );
+  }
+
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={handleLogin} loading={loginLoading} />;
+  }
 
   const navBtnStyle = {
     background: '#111827',
@@ -119,7 +229,10 @@ function App() {
     setForceUpdateOutput("");
     setShowForceUpdateModal(true);
     try {
-      const res = await fetch('/api/force_update', { method: 'POST' });
+      const res = await fetch('/api/force_update', { 
+        method: 'POST',
+        credentials: 'include'
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.output || 'Failed to force update');
       setForceUpdateOutput(data.output || 'Update complete.');
@@ -201,7 +314,6 @@ function App() {
                           setSelectedPharmacy(opt.value);
                           setDropdownOpen(false);
                         }}
-                        onMouseDown={e => e.preventDefault()}
                       >
                         {opt.label}
                       </div>
@@ -210,237 +322,240 @@ function App() {
                 )}
               </div>
             </div>
-            {/* Right-aligned icon group */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '2mm' }}>
-              {/* Calendar Icon */}
+
+            {/* User info and logout button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginRight: '2mm' }}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                Welcome, {currentUser}
+              </span>
               <button
-                aria-label="Open calendar"
-                onClick={handleCalendarOpen}
+                onClick={handleLogout}
                 style={{
-                  background: 'none',
-                  border: 'none',
+                  background: 'var(--surface-primary)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-color)',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.9rem',
                   cursor: 'pointer',
-                  zIndex: 200,
-                  padding: 0,
-                  marginRight: 5,
-                  display: 'flex',
-                  alignItems: 'center',
+                  transition: 'background 0.2s, border-color 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.background = 'var(--accent-primary)';
+                  e.target.style.borderColor = 'var(--accent-primary)';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.background = 'var(--surface-primary)';
+                  e.target.style.borderColor = 'var(--border-color)';
                 }}
               >
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FF4500" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="5" width="18" height="16" rx="2"/>
-                  <path d="M16 3v4M8 3v4M3 9h18"/>
-                </svg>
-              </button>
-              {/* Hamburger Menu Icon */}
-              <button
-                aria-label="Open menu"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  zIndex: 200,
-                  padding: 0,
-                  marginRight: 5,
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-                onClick={() => setMenuOpen(v => !v)}
-              >
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FF4500" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="4" y1="5" x2="20" y2="5" />
-                  <line x1="4" y1="12" x2="20" y2="12" />
-                  <line x1="4" y1="19" x2="20" y2="19" />
-                </svg>
+                Logout
               </button>
             </div>
           </div>
-          {/* Selected Day Label as part of header */}
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'right', marginBottom: '1mm', marginRight: '4mm' }}>
-            <span style={{
-              fontSize: '0.78rem',
-              color: '#bdbdbd',
-              letterSpacing: '0.01em',
-              fontWeight: 400,
-              minWidth: 80,
-              textAlign: 'center',
-            }}>
-              {selectedDate ? formatDate(selectedDate) : ''}
-            </span>
-          </div>
-          {/* Navigation Bar below date label, part of header */}
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.1rem', background: '#111827', margin: 0, padding: 0 }}>
-            <button
-              style={view === 'daily' ? navBtnActiveStyle : navBtnStyle}
-              onClick={() => setView('daily')}
-            >
-              Daily
-            </button>
-            <button
-              style={view === 'monthly' ? navBtnActiveStyle : navBtnStyle}
-              onClick={() => setView('monthly')}
-            >
-              Monthly
-            </button>
-            <button
-              style={view === 'yearly' ? navBtnActiveStyle : navBtnStyle}
-              onClick={() => setView('yearly')}
-            >
-              Yearly
-            </button>
-            <button
-              style={{ ...(view === 'stock' ? navBtnActiveStyle : navBtnStyle), marginRight: 0 }}
-              onClick={() => setView('stock')}
-            >
-              Stock
-            </button>
+
+          {/* Navigation and Date Selector */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            padding: '0 2mm',
+            gap: '4mm',
+          }}>
+            {/* Navigation Tabs */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1mm' }}>
+              {['daily', 'monthly', 'yearly', 'stock'].map(tab => (
+                <button
+                  key={tab}
+                  style={view === tab ? navBtnActiveStyle : navBtnStyle}
+                  onClick={() => setView(tab)}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+
+            {/* Date Selector and Menu */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1mm' }}>
+              {(view === 'daily' || view === 'monthly') && (
+                <div style={{ position: 'relative' }}>
+                  <button
+                    style={showCalendar ? dateSelectorBtnActiveStyle : dateSelectorBtnStyle}
+                    onClick={handleCalendarOpen}
+                  >
+                    {selectedDate ? selectedDate.toLocaleDateString('en-ZA', { 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    }) : 'Select Date'}
+                  </button>
+                  
+                  {showCalendar && (
+                    <div
+                      ref={calendarRef}
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        zIndex: 200,
+                        background: '#fff',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
+                        marginTop: '4px',
+                      }}
+                    >
+                      <DayPicker
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => {
+                          setSelectedDate(date);
+                          setShowCalendar(false);
+                        }}
+                        month={displayMonth}
+                        onMonthChange={setDisplayMonth}
+                        showOutsideDays
+                        fixedWeeks
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Hamburger Menu */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  ref={menuRef}
+                  style={{
+                    ...navBtnStyle,
+                    marginRight: 0,
+                    padding: '0.7rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onClick={() => setMenuOpen(v => !v)}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+
+                {menuOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    background: '#232b3b',
+                    borderRadius: 8,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+                    minWidth: 200,
+                    zIndex: 100,
+                    padding: '8px 0',
+                    marginTop: '4px',
+                  }}>
+                    <button
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        background: 'none',
+                        border: 'none',
+                        color: '#fff',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '0.95rem',
+                        transition: 'background 0.15s',
+                      }}
+                      onClick={() => {
+                        handleForceUpdate();
+                        setMenuOpen(false);
+                      }}
+                      onMouseOver={(e) => e.target.style.background = '#2c3e50'}
+                      onMouseOut={(e) => e.target.style.background = 'none'}
+                    >
+                      Force Update Data
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      {/* Calendar Popover */}
-      {showCalendar && (
-        <div ref={calendarRef} style={{ position: 'fixed', top: 60, right: 32, zIndex: 20000 }}>
-          <DayPicker
-            mode="single"
-            selected={selectedDate}
-            month={displayMonth}
-            onMonthChange={setDisplayMonth}
-            onSelect={date => {
-              if (date) {
-                setSelectedDate(date);
-                setDisplayMonth(date);
-              }
-              setShowCalendar(false);
-            }}
-            showOutsideDays
-            modifiersClassNames={{
-              selected: 'calendar-selected',
-              today: 'calendar-today',
-              weekend: 'calendar-weekend',
-            }}
-            className="custom-calendar"
-            fromYear={2018}
-            toYear={currentYear}
-            captionLayout="dropdown"
-          />
-        </div>
-      )}
-      {/* Hamburger Dropdown Menu */}
-      {menuOpen && (
-        <div
-          ref={menuRef}
-          style={{
-            position: 'absolute',
-            top: 60, // height of header
-            left: '2.5vw',
-            width: '95vw',
-            background: '#232b3b',
-            color: '#fff',
-            borderRadius: 8,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-            minHeight: 180,
-            zIndex: 20000,
-            padding: '0',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: 'auto',
-            maxWidth: 600,
-            margin: '0 auto',
-          }}
-        >
-          <div style={{ padding: '18px 0 8px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button style={{
-              width: '92%',
-              margin: '0 auto',
-              background: '#232b3b',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              padding: '12px 0',
-              cursor: 'pointer',
-              transition: 'background 0.18s, color 0.18s',
-              textAlign: 'left',
-              paddingLeft: 18,
-            }}
-            onClick={() => {}}>
-              Notifications
-            </button>
-            <button style={{
-              width: '92%',
-              margin: '0 auto',
-              background: '#232b3b',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              padding: '12px 0',
-              cursor: 'pointer',
-              transition: 'background 0.18s, color 0.18s',
-              textAlign: 'left',
-              paddingLeft: 18,
-              opacity: forceUpdateLoading ? 0.6 : 1,
-            }}
-            onClick={handleForceUpdate} disabled={forceUpdateLoading}>
-              {forceUpdateLoading ? 'Updating...' : 'Force Update'}
-            </button>
-            <button style={{
-              width: '92%',
-              margin: '0 auto',
-              background: '#232b3b',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              padding: '12px 0',
-              cursor: 'pointer',
-              transition: 'background 0.18s, color 0.18s',
-              textAlign: 'left',
-              paddingLeft: 18,
-            }}
-            onClick={() => {}}>
-              Admin
-            </button>
-          </div>
-          <button style={{
-            width: '92%',
-            margin: '18px auto 18px auto',
-            background: '#232b3b',
-            color: '#FF4444',
-            border: 'none',
-            borderRadius: 8,
-            fontSize: '1.15rem',
-            fontWeight: 700,
-            padding: '12px 0',
-            cursor: 'pointer',
-            transition: 'background 0.18s, color 0.18s',
-            textAlign: 'left',
-            paddingLeft: 18,
-          }}
-          onClick={() => {}}>
-            Logout
-          </button>
-        </div>
-      )}
-      {/* Main View */}
-      <div className="view-container" style={{ marginTop: '1mm' }}>
+
+      {/* Main Content */}
+      <div style={{ paddingTop: '2rem' }}>
         {view === 'daily' && <DailyView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
         {view === 'monthly' && <MonthlyView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
         {view === 'yearly' && <YearlyView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
-        {view === 'stock' && <StockView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
+        {view === 'stock' && <StockView selectedPharmacy={selectedPharmacy} />}
       </div>
+
+      {/* Force Update Modal */}
       {showForceUpdateModal && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.45)', zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          padding: '2rem',
         }}>
-          <div style={{ background: '#232b3b', color: '#fff', borderRadius: 12, padding: 32, minWidth: 340, maxWidth: 600, boxShadow: '0 2px 16px rgba(0,0,0,0.25)', position: 'relative' }}>
-            <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: '1.3rem', color: '#FF4500' }}>Force Update Progress</h2>
-            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '1.05rem', maxHeight: 350, overflowY: 'auto', background: '#181f2a', padding: 16, borderRadius: 8 }}>{forceUpdateOutput || (forceUpdateLoading ? 'Running update...' : '')}</pre>
-            <button onClick={() => setShowForceUpdateModal(false)} style={{ marginTop: 18, background: '#FF4500', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer', float: 'right' }} disabled={forceUpdateLoading}>Close</button>
+          <div className="card" style={{ maxWidth: '600px', width: '100%', maxHeight: '80vh', overflow: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}>Force Update Progress</h3>
+              <button
+                onClick={() => setShowForceUpdateModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontSize: '1.5rem',
+                  padding: '0.25rem',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            {forceUpdateLoading && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginBottom: '1rem',
+                color: 'var(--accent-primary)',
+              }}>
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid transparent',
+                  borderTop: '2px solid currentColor',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                }}></div>
+                Running update...
+              </div>
+            )}
+            
+            <pre style={{
+              background: 'var(--surface-secondary)',
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              whiteSpace: 'pre-wrap',
+              maxHeight: '400px',
+              overflow: 'auto',
+              fontSize: '0.85rem',
+              color: 'var(--text-primary)',
+            }}>
+              {forceUpdateOutput || 'Starting update...'}
+            </pre>
           </div>
         </div>
       )}

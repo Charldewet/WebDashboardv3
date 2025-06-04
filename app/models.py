@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, Date, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, Date, UniqueConstraint, DateTime
 from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime
+import hashlib
 
 Base = declarative_base()
 
@@ -69,4 +71,20 @@ class DailyReport(Base):
 
     __table_args__ = (
         UniqueConstraint("pharmacy_code", "report_date", name="_pharmacy_day_uc"),
-    ) 
+    )
+
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
+    password_hash = Column(String(64), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    def set_password(self, password):
+        """Hash and set the password"""
+        self.password_hash = hashlib.sha256(password.encode()).hexdigest()
+    
+    def check_password(self, password):
+        """Check if the provided password matches the hash"""
+        return self.password_hash == hashlib.sha256(password.encode()).hexdigest() 
