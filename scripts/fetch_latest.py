@@ -19,6 +19,7 @@ from config import settings
 TEMP_HTML_DIR = "/tmp/daily_html/"
 
 def main():
+    print("=== fetch_latest.py started ===", flush=True)
     parser = argparse.ArgumentParser(description="Fetch and parse latest pharmacy emails for all pharmacies.")
     parser.add_argument('--all', action='store_true', help='Fetch all emails (not just last 7 days)')
     args = parser.parse_args()

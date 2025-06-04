@@ -372,6 +372,7 @@ def get_daily_dispensary_turnover_for_range(start_date, end_date):
 
 @api_bp.route('/force_update', methods=['POST'])
 def force_update():
+    print("=== /api/force_update called ===", flush=True)
     try:
         result = subprocess.run(
             ['python3', 'scripts/fetch_latest.py'],
@@ -379,9 +380,15 @@ def force_update():
             text=True,
             timeout=600  # 10 minutes max
         )
+        print("=== subprocess finished ===", flush=True)
+        print("stdout:", result.stdout, flush=True)
+        print("stderr:", result.stderr, flush=True)
         if result.returncode == 0:
             return jsonify({"status": "success", "output": result.stdout}), 200
         else:
+            if not result.stderr:
+                return jsonify({"status": "error", "output": "Unknown error: no stderr output"}), 500
             return jsonify({"status": "error", "output": result.stderr}), 500
     except Exception as e:
+        print("Exception in force_update:", str(e), flush=True)
         return jsonify({"status": "error", "output": str(e)}), 500 
