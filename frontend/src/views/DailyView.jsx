@@ -654,17 +654,46 @@ function DailyView({ selectedPharmacy, selectedDate }) {
           </div>
         ) : yoyComparisonData.length > 0 ? (
           <>
-            {/* Debug logging for development */}
-            {process.env.NODE_ENV === 'development' && console.log('YoY Chart Data:', yoyComparisonData)}
+            {/* Enhanced Debug logging for development */}
+            {process.env.NODE_ENV === 'development' && console.log('YoY Chart Data:', JSON.stringify(yoyComparisonData, null, 2))}
+            {process.env.NODE_ENV === 'development' && yoyComparisonData.forEach((item, index) => {
+              console.log(`Data item ${index}:`, {
+                category: item.category,
+                currentYear: item.currentYear,
+                lastYear: item.lastYear,
+                currentDate: item.currentDate,
+                lastYearDate: item.lastYearDate
+              });
+            })}
+            
+            {/* Test data for debugging */}
+            {process.env.NODE_ENV === 'development' && (() => {
+              const testData = [
+                {
+                  category: 'Saturday',
+                  currentYear: 53680,
+                  lastYear: 45000,
+                  currentDate: '2025-05-31',
+                  lastYearDate: '2024-06-01'
+                }
+              ];
+              console.log('Test data for comparison:', testData);
+              return null;
+            })()}
+            
             <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
               <BarChart 
                 data={yoyComparisonData} 
-                layout="horizontal"
-                margin={{ top: 20, right: 30, left: 80, bottom: 20 }}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 
-                  type="number"
+                  dataKey="category" 
+                  tick={{ fontSize: 12, fill: '#9CA3AF' }} 
+                  axisLine={{ stroke: '#4B5563' }} 
+                  tickLine={{ stroke: '#4B5563' }}
+                />
+                <YAxis 
                   tick={{ fontSize: 11, fill: '#9CA3AF' }}
                   tickFormatter={(value) => {
                     if (value >= 1000000) return `R${(value/1000000).toFixed(1)}M`;
@@ -673,14 +702,6 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   }}
                   axisLine={{ stroke: '#4B5563' }}
                   tickLine={{ stroke: '#4B5563' }}
-                />
-                <YAxis 
-                  type="category"
-                  dataKey="category" 
-                  tick={{ fontSize: 12, fill: '#9CA3AF' }} 
-                  axisLine={{ stroke: '#4B5563' }} 
-                  tickLine={{ stroke: '#4B5563' }}
-                  width={70}
                 />
                 <Tooltip content={<CustomYoYTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
                 <Legend 
@@ -697,13 +718,15 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   dataKey="currentYear" 
                   name="This Year" 
                   fill="#FF4500" 
-                  barSize={35}
+                  radius={[4, 4, 0, 0]} 
+                  barSize={60}
                 />
                 <Bar 
                   dataKey="lastYear" 
                   name="Last Year" 
                   fill="#39FF14" 
-                  barSize={35}
+                  radius={[4, 4, 0, 0]} 
+                  barSize={60}
                 />
               </BarChart>
             </ResponsiveContainer>
