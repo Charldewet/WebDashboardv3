@@ -352,6 +352,12 @@ function DailyView({ selectedPharmacy, selectedDate }) {
         const currentYearTurnover = currentRes.data?.turnover || 0;
         const lastYearTurnover = lastYearRes.data?.turnover || 0;
         
+        // Sanitize the data to ensure valid numbers
+        const sanitizeValue = (value) => {
+          const num = Number(value);
+          return isNaN(num) || !isFinite(num) ? 0 : num;
+        };
+        
         const currentDate = new Date(singleDate);
         const lastYearDate = new Date(correspondingDayLastYear);
         const currentDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
@@ -359,13 +365,14 @@ function DailyView({ selectedPharmacy, selectedDate }) {
         const yoyData = [
           {
             category: currentDayName,
-            currentYear: currentYearTurnover,
-            lastYear: lastYearTurnover,
+            currentYear: sanitizeValue(currentYearTurnover),
+            lastYear: sanitizeValue(lastYearTurnover),
             currentDate: singleDate,
             lastYearDate: correspondingDayLastYear
           }
         ];
 
+        console.log('Sanitized YoY data:', yoyData);
         setYoyComparisonData(yoyData);
         setLoadingYoyComparison(false);
       })
@@ -652,7 +659,12 @@ function DailyView({ selectedPharmacy, selectedDate }) {
           }}>
             {errorYoyComparison}
           </div>
-        ) : yoyComparisonData.length > 0 ? (
+        ) : yoyComparisonData.length > 0 && yoyComparisonData.every(item => 
+            typeof item.currentYear === 'number' && 
+            typeof item.lastYear === 'number' && 
+            isFinite(item.currentYear) && 
+            isFinite(item.lastYear)
+          ) ? (
           <>
             {/* Enhanced Debug logging for development */}
             {process.env.NODE_ENV === 'development' && console.log('YoY Chart Data:', JSON.stringify(yoyComparisonData, null, 2))}
