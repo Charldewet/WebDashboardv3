@@ -693,109 +693,113 @@ function DailyView({ selectedPharmacy, selectedDate }) {
               return null;
             })()}
             
-            {/* Year-over-Year Comparison Balloon */}
-            {(() => {
-              const currentYear = yoyComparisonData[0]?.currentYear || 0;
-              const lastYear = yoyComparisonData[0]?.lastYear || 0;
-              const difference = currentYear - lastYear;
-              const percentageChange = lastYear > 0 ? ((difference / lastYear) * 100) : 0;
-              const isPositive = difference > 0;
+            <div style={{ position: 'relative', flexGrow: 1, minHeight: 0 }}>
+              <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
+                <BarChart 
+                  data={yoyComparisonData.map(item => ({
+                    category: item.category || 'Day',
+                    currentYear: Math.max(0, Number(item.currentYear) || 0),
+                    lastYear: Math.max(0, Number(item.lastYear) || 0),
+                    currentDate: item.currentDate,
+                    lastYearDate: item.lastYearDate
+                  }))} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="category" 
+                    tick={{ fontSize: 12, fill: '#9CA3AF' }} 
+                    axisLine={{ stroke: '#4B5563' }} 
+                    tickLine={{ stroke: '#4B5563' }}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 11, fill: '#9CA3AF' }}
+                    tickFormatter={(value) => {
+                      if (value === null || value === undefined || isNaN(value) || !isFinite(value)) {
+                        return 'R0';
+                      }
+                      if (value >= 1000000) return `R${(value/1000000).toFixed(1)}M`;
+                      if (value >= 1000) return `R${(value/1000).toFixed(0)}k`;
+                      return `R${Math.round(value)}`;
+                    }}
+                    axisLine={{ stroke: '#4B5563' }}
+                    tickLine={{ stroke: '#4B5563' }}
+                  />
+                  <Tooltip content={<CustomYoYTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
+                  <Legend 
+                    verticalAlign="top" 
+                    height={36} 
+                    wrapperStyle={{
+                      fontSize: "12px", 
+                      color: "#bdbdbd", 
+                      paddingTop: "0px", 
+                      paddingBottom: "10px"
+                    }} 
+                  />
+                  <Bar 
+                    dataKey="currentYear" 
+                    name="This Year" 
+                    fill="#FF4500"
+                    radius={[4, 4, 0, 0]} 
+                    barSize={60}
+                  />
+                  <Bar 
+                    dataKey="lastYear" 
+                    name="Last Year" 
+                    fill="#EFB9AF"
+                    radius={[4, 4, 0, 0]} 
+                    barSize={60}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
               
-              return (
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  marginBottom: '1rem'
-                }}>
+              {/* Year-over-Year Comparison Balloon - positioned within chart container */}
+              {(() => {
+                const currentYear = yoyComparisonData[0]?.currentYear || 0;
+                const lastYear = yoyComparisonData[0]?.lastYear || 0;
+                const difference = currentYear - lastYear;
+                
+                let details = null;
+                if (lastYear === 0) {
+                  if (currentYear > 0) {
+                    details = { arrow: '↑', text: `R ${currentYear.toLocaleString('en-ZA')} more than PY (was R0)`, color: '#10B981' };
+                  } else {
+                    details = { arrow: '', text: 'Same as last year (R0)', color: '#9CA3AF' };
+                  }
+                } else {
+                  const percentage = Math.round((difference / lastYear) * 100);
+                  if (difference > 0) {
+                    details = { arrow: '↑', text: `R ${Math.abs(difference).toLocaleString('en-ZA')} (${percentage > 0 ? '+' : ''}${percentage}%) more than last year`, color: '#10B981' };
+                  } else if (difference < 0) {
+                    details = { arrow: '↓', text: `R ${Math.abs(difference).toLocaleString('en-ZA')} (${percentage}%) less than last year`, color: '#EF4444' };
+                  } else {
+                    details = { arrow: '', text: 'Same as last year', color: '#9CA3AF' };
+                  }
+                }
+                
+                return details ? (
                   <div style={{
-                    background: isPositive ? '#39FF14' : '#FF4500',
-                    color: '#fff',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '1.5rem',
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
+                    position: 'absolute',
+                    bottom: '12px',
+                    right: '12px',
+                    background: 'rgba(255, 69, 0, 0.85)', // Orange #FF4500 with opacity
+                    color: '#FFFFFF', // White text for all content
+                    padding: '5px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.7rem', // Base font size for the box
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                    gap: '4px',
+                    zIndex: 10,
+                    border: '1px solid rgba(255, 69, 0, 0.5)', // Orange border with opacity
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
                   }}>
-                    <span style={{ fontSize: '1rem' }}>
-                      {isPositive ? '↗' : '↓'}
-                    </span>
-                    <span>
-                      R {Math.abs(difference).toLocaleString('en-ZA', { maximumFractionDigits: 0 })} ({Math.abs(percentageChange).toFixed(1)}%) {isPositive ? 'more' : 'less'} than last year
-                    </span>
+                    {details.arrow && <span style={{ fontSize: '0.9rem', lineHeight: '1', fontWeight: 700 }}>{details.arrow}</span>}
+                    <span style={{ fontWeight: 600, fontSize: '0.75rem' }}>{details.text.split(' ')[0]} {details.text.split(' ')[1]}</span>
+                    <span style={{ marginLeft: '2px', fontWeight: 600, fontSize: '0.75rem' }}>{details.text.substring(details.text.indexOf(' ', details.text.indexOf(' ') + 1) + 1)}</span>
                   </div>
-                </div>
-              );
-            })()}
-            
-            <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
-              <BarChart 
-                data={yoyComparisonData.map(item => ({
-                  category: item.category || 'Day',
-                  currentYear: Math.max(0, Number(item.currentYear) || 0),
-                  lastYear: Math.max(0, Number(item.lastYear) || 0),
-                  currentDate: item.currentDate,
-                  lastYearDate: item.lastYearDate
-                }))} 
-                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis 
-                  dataKey="category" 
-                  tick={{ fontSize: 12, fill: '#9CA3AF' }} 
-                  axisLine={{ stroke: '#4B5563' }} 
-                  tickLine={{ stroke: '#4B5563' }}
-                />
-                <YAxis 
-                  tick={{ fontSize: 11, fill: '#9CA3AF' }}
-                  tickFormatter={(value) => {
-                    if (value === null || value === undefined || isNaN(value) || !isFinite(value)) {
-                      return 'R0';
-                    }
-                    if (value >= 1000000) return `R${(value/1000000).toFixed(1)}M`;
-                    if (value >= 1000) return `R${(value/1000).toFixed(0)}k`;
-                    return `R${Math.round(value)}`;
-                  }}
-                  axisLine={{ stroke: '#4B5563' }}
-                  tickLine={{ stroke: '#4B5563' }}
-                />
-                <Tooltip content={<CustomYoYTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
-                <Legend 
-                  verticalAlign="top" 
-                  height={36} 
-                  wrapperStyle={{
-                    fontSize: "12px", 
-                    color: "#bdbdbd", 
-                    paddingTop: "0px", 
-                    paddingBottom: "10px"
-                  }} 
-                />
-                <Bar 
-                  dataKey="currentYear" 
-                  name="This Year" 
-                  fill="#FF4500"
-                  radius={[4, 4, 0, 0]} 
-                  barSize={60}
-                />
-                <Bar 
-                  dataKey="lastYear" 
-                  name="Last Year" 
-                  fill="#EFB9AF"
-                  radius={[4, 4, 0, 0]} 
-                  barSize={60}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-            <div style={{ 
-              textAlign: 'center', 
-              color: '#bdbdbd', 
-              fontSize: '0.8rem', 
-              paddingTop: '4px', 
-              flexShrink: 0 
-            }}>
-              
+                ) : null;
+              })()}
             </div>
           </>
         ) : (
