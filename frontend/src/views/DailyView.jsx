@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { PieChart, Pie, Cell, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 // Custom Tooltip for Composed Chart
 const CustomCombinedTooltip = ({ active, payload, label }) => {
@@ -654,8 +654,10 @@ function DailyView({ selectedPharmacy, selectedDate }) {
           </div>
         ) : yoyComparisonData.length > 0 ? (
           <>
+            {/* Debug logging for development */}
+            {process.env.NODE_ENV === 'development' && console.log('YoY Chart Data:', yoyComparisonData)}
             <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
-              <ComposedChart 
+              <BarChart 
                 data={yoyComparisonData} 
                 layout="horizontal"
                 margin={{ top: 20, right: 30, left: 80, bottom: 20 }}
@@ -695,17 +697,15 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   dataKey="currentYear" 
                   name="This Year" 
                   fill="#FF4500" 
-                  radius={[0, 4, 4, 0]} 
-                  barSize={30}
+                  barSize={35}
                 />
                 <Bar 
                   dataKey="lastYear" 
                   name="Last Year" 
                   fill="#39FF14" 
-                  radius={[0, 4, 4, 0]} 
-                  barSize={30}
+                  barSize={35}
                 />
-              </ComposedChart>
+              </BarChart>
             </ResponsiveContainer>
             <div style={{ 
               textAlign: 'center', 
