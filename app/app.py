@@ -562,15 +562,49 @@ def get_monthly_closing_stock_for_range(start_date, end_date):
                 DailyReport.pharmacy_code == pharmacy,
                 DailyReport.report_date >= month_start,
                 DailyReport.report_date <= month_end,
-                DailyReport.closing_stock_today.isnot(None)
+                DailyReport.closing_stock_today.isnot(None),
+                DailyReport.closing_stock_today > 0
             ).order_by(DailyReport.report_date.desc()).first()
             
-            closing_stock_value = query.closing_stock_today if query else 0
+            closing_stock_value = 0
+            fallback_used = False
+            
+            if query and query.closing_stock_today:
+                closing_stock_value = query.closing_stock_today
+            else:
+                # Fallback: Look for opening stock in the next month
+                next_month = month + 1
+                next_year = year
+                if next_month > 12:
+                    next_month = 1
+                    next_year += 1
+                
+                # Check up to 31 days in the next month for opening stock
+                for day in range(1, 32):
+                    try:
+                        if day > calendar.monthrange(next_year, next_month)[1]:
+                            break  # Don't go beyond the last day of the month
+                        
+                        next_month_date = f"{next_year}-{next_month:02d}-{day:02d}"
+                        fallback_query = session.query(DailyReport).filter(
+                            DailyReport.pharmacy_code == pharmacy,
+                            DailyReport.report_date == next_month_date,
+                            DailyReport.opening_stock_today.isnot(None),
+                            DailyReport.opening_stock_today > 0
+                        ).first()
+                        
+                        if fallback_query and fallback_query.opening_stock_today:
+                            closing_stock_value = fallback_query.opening_stock_today
+                            fallback_used = True
+                            break
+                    except:
+                        continue  # Skip invalid dates
             
             monthly_closing_stock.append({
                 "month": f"{year}-{month:02d}",
                 "month_name": datetime(year, month, 1).strftime('%b %Y'),
-                "closing_stock": round(closing_stock_value, 2)
+                "closing_stock": round(closing_stock_value, 2),
+                "fallback_used": fallback_used
             })
             
             # Move to next month
