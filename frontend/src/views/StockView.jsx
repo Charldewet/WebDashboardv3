@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 // Custom Tooltip for Monthly Inventory Chart
 const CustomInventoryTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     const inventoryData = payload.find(p => p.dataKey === 'closing_stock');
+    const changeData = payload.find(p => p.dataKey === 'inventory_change');
 
     return (
       <div style={{
@@ -23,7 +24,12 @@ const CustomInventoryTooltip = ({ active, payload, label }) => {
         </p>
         {inventoryData && (
           <p style={{ margin: '0.2rem 0 0 0', color: '#fff' }}>
-            {`Closing Stock: R ${inventoryData.value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`}
+            {`Inventory: R ${inventoryData.value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`}
+          </p>
+        )}
+        {changeData && changeData.value !== null && (
+          <p style={{ margin: '0.2rem 0 0 0', color: changeData.value >= 0 ? '#39FF14' : '#FF4500' }}>
+            {changeData.value >= 0 ? '+' : ''}R {changeData.value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}
           </p>
         )}
       </div>
@@ -209,11 +215,18 @@ function StockView({ selectedPharmacy, selectedDate }) {
       .then(res => {
         const monthlyData = res.data?.monthly_closing_stock || [];
         
-        // Add color coding - highlight current month
-        const processedData = monthlyData.map(item => ({
-          ...item,
-          fill: item.month === `${currentYear}-${currentMonth.toString().padStart(2, '0')}` ? '#FF4500' : '#FFB800'
-        }));
+        // Calculate month-over-month changes
+        const processedData = monthlyData.map((item, index) => {
+          const currentValue = item.closing_stock;
+          const previousValue = index > 0 ? monthlyData[index - 1].closing_stock : null;
+          const inventoryChange = previousValue !== null ? currentValue - previousValue : null;
+          
+          return {
+            ...item,
+            inventory_change: inventoryChange,
+            fill: item.month === `${currentYear}-${currentMonth.toString().padStart(2, '0')}` ? '#FF4500' : '#FFB800'
+          };
+        });
         
         setInventoryChartData(processedData);
         setLoadingInventoryChart(false);
@@ -239,7 +252,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
 
   return (
     <div style={{ width: '100vw', boxSizing: 'border-box', marginTop: '-2mm', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* 12-Month Inventory Chart */}
+      {/* 12-Month Inventory Chart with Change Line */}
       <div style={{
         width: 'calc(100vw - 5mm)',
         height: 152,
@@ -260,14 +273,25 @@ function StockView({ selectedPharmacy, selectedDate }) {
         ) : inventoryChartData && inventoryChartData.length > 0 ? (
           <>
             <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
-              <BarChart data={inventoryChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+              <ComposedChart data={inventoryChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                 <Tooltip content={<CustomInventoryTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
-                <Bar dataKey="closing_stock" name="Closing Stock" radius={[4, 4, 0, 0]} barSize={18}>
+                <Bar dataKey="closing_stock" name="Closing Stock" radius={[4, 4, 0, 0]} barSize={18} yAxisId="left">
                   {inventoryChartData.map((entry, index) => (
                     <Cell key={`cell-inventory-${index}`} fill={entry.fill} />
                   ))}
                 </Bar>
-              </BarChart>
+                <Line 
+                  type="monotone" 
+                  dataKey="inventory_change" 
+                  name="Monthly Change" 
+                  stroke="#fff" 
+                  strokeWidth={3} 
+                  dot={false}
+                  activeDot={false}
+                  yAxisId="right"
+                  connectNulls={false}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
             <div style={{ textAlign: 'center', color: '#bdbdbd', fontSize: '0.8rem', paddingTop: '4px', flexShrink: 0 }}>
               12-Month Inventory Window
