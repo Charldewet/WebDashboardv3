@@ -600,9 +600,9 @@ function DailyView({ selectedPharmacy, selectedDate }) {
 
       {/* Year-over-Year Comparison Chart */}
       <div style={{
-        width: 'calc(100vw - 10mm)',
-        marginLeft: '2mm',
-        marginRight: '2mm',
+        width: 'calc(100vw - 12mm)',
+        marginLeft: '4mm',
+        marginRight: '4mm',
         background: '#232b3b',
         color: '#fff',
         borderRadius: '1.2rem',

@@ -417,6 +417,26 @@ def get_daily_dispensary_turnover_for_range(start_date, end_date):
     session.close()
     return jsonify({"pharmacy": pharmacy, "daily_dispensary_turnover": daily_dispensary_turnover})
 
+@api_bp.route('/opening_stock_for_range/<start_date>/<end_date>', methods=['GET'])
+def get_opening_stock_for_range(start_date, end_date):
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    session = create_session()
+    
+    # Get the first report in the range for opening stock
+    query = session.query(DailyReport).filter(
+        DailyReport.pharmacy_code == pharmacy,
+        DailyReport.report_date >= start_date,
+        DailyReport.report_date <= end_date
+    ).order_by(DailyReport.report_date).first()
+    
+    opening_stock = query.opening_stock_today if query and query.opening_stock_today else 0
+    
+    session.close()
+    return jsonify({
+        'pharmacy': pharmacy,
+        'opening_stock': round(opening_stock, 2)
+    })
+
 @api_bp.route('/status', methods=['GET'])
 @memory_cleanup  
 def app_status():
