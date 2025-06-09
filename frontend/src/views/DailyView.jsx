@@ -41,7 +41,6 @@ const CustomYoYTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     const currentYearData = payload.find(p => p.dataKey === 'currentYear');
     const lastYearData = payload.find(p => p.dataKey === 'lastYear');
-    const data = payload[0]?.payload;
 
     return (
       <div style={{
@@ -54,24 +53,14 @@ const CustomYoYTooltip = ({ active, payload, label }) => {
         fontWeight: 500,
         boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
       }}>
-        {data?.currentDate && (
-          <p style={{ margin: 0, color: '#bdbdbd', fontSize: '0.8rem', textAlign: 'center' }}>
-            {new Date(data.currentDate).toLocaleDateString('en-ZA')} vs {new Date(data.lastYearDate).toLocaleDateString('en-ZA')}
-          </p>
-        )}
         {currentYearData && (
-          <p style={{ margin: '0.4rem 0 0 0', color: '#FF4500', fontSize: '1rem', fontWeight: 600 }}>
+          <p style={{ margin: '0', color: '#FF4500', fontSize: '1rem', fontWeight: 600 }}>
             {`This Year: R ${currentYearData.value.toLocaleString('en-ZA')}`}
           </p>
         )}
         {lastYearData && (
           <p style={{ margin: '0.4rem 0 0 0', color: '#EFB9AF', fontSize: '1rem', fontWeight: 600 }}>
             {`Last Year: R ${lastYearData.value.toLocaleString('en-ZA')}`}
-          </p>
-        )}
-        {currentYearData && lastYearData && lastYearData.value > 0 && (
-          <p style={{ margin: '0.4rem 0 0 0', color: '#bdbdbd', fontSize: '0.85rem' }}>
-            {`Change: ${((currentYearData.value - lastYearData.value) / lastYearData.value * 100).toFixed(1)}%`}
           </p>
         )}
       </div>
@@ -611,7 +600,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
 
       {/* Year-over-Year Comparison Chart */}
       <div style={{
-        width: 'calc(100vw - 4mm)',
+        width: 'calc(100vw - 10mm)',
         marginLeft: '2mm',
         marginRight: '2mm',
         background: '#232b3b',
