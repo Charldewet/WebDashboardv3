@@ -19,11 +19,8 @@ const CustomInventoryTooltip = ({ active, payload, label }) => {
         fontWeight: 500,
         boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
       }}>
-        <p style={{ margin: 0, color: '#FFB800', fontWeight: 600 }}>
-          {`${label}`}
-        </p>
         {inventoryData && (
-          <p style={{ margin: '0.2rem 0 0 0', color: '#fff' }}>
+          <p style={{ margin: 0, color: '#fff' }}>
             {`Inventory: R ${inventoryData.value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`}
           </p>
         )}
