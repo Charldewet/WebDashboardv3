@@ -488,6 +488,45 @@ def get_opening_stock_for_range(start_date, end_date):
             'success': False
         }), 500
 
+@api_bp.route('/stock_adjustments_for_range/<start_date>/<end_date>', methods=['GET'])
+def get_stock_adjustments_for_range(start_date, end_date):
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    session = create_session()
+    query = session.query(DailyReport).filter(
+        DailyReport.pharmacy_code == pharmacy,
+        DailyReport.report_date >= start_date,
+        DailyReport.report_date <= end_date
+    )
+    reports = query.all()
+    total_adjustments = sum(r.stock_adjustments_today for r in reports if r.stock_adjustments_today)
+    session.close()
+    return jsonify({
+        'pharmacy': pharmacy,
+        'stock_adjustments': round(total_adjustments, 2)
+    })
+
+@api_bp.route('/closing_stock_for_range/<start_date>/<end_date>', methods=['GET'])
+def get_closing_stock_for_range(start_date, end_date):
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    session = create_session()
+    
+    # Get the most recent closing stock in the date range
+    query = session.query(DailyReport).filter(
+        DailyReport.pharmacy_code == pharmacy,
+        DailyReport.report_date >= start_date,
+        DailyReport.report_date <= end_date,
+        DailyReport.closing_stock_today.isnot(None)
+    ).order_by(DailyReport.report_date.desc()).first()
+    
+    closing_stock = query.closing_stock_today if query and query.closing_stock_today else 0
+    
+    session.close()
+    return jsonify({
+        'pharmacy': pharmacy,
+        'closing_stock': round(closing_stock, 2),
+        'date_used': query.report_date.strftime('%Y-%m-%d') if query else None
+    })
+
 @api_bp.route('/status', methods=['GET'])
 @memory_cleanup  
 def app_status():

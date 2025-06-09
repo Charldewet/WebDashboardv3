@@ -40,15 +40,15 @@ function StockView({ selectedPharmacy, selectedDate }) {
   const [loadingOpeningStock, setLoadingOpeningStock] = useState(true);
   const [errorOpeningStock, setErrorOpeningStock] = useState(null);
 
-  const [avgBasket, setAvgBasket] = useState({ value: null, size: null });
-  const [loadingAvgBasket, setLoadingAvgBasket] = useState(true);
-  const [errorAvgBasket, setErrorAvgBasket] = useState(null);
+  const [purchasesStats, setPurchasesStats] = useState(null);
+  const [loadingPurchases, setLoadingPurchases] = useState(true);
+  const [errorPurchases, setErrorPurchases] = useState(null);
 
-  const [gpStats, setGpStats] = useState({ percent: null, value: null });
-  const [loadingGpStats, setLoadingGpStats] = useState(true);
-  const [errorGpStats, setErrorGpStats] = useState(null);
+  const [adjustmentsStats, setAdjustmentsStats] = useState(null);
+  const [loadingAdjustments, setLoadingAdjustments] = useState(true);
+  const [errorAdjustments, setErrorAdjustments] = useState(null);
 
-  const [costStats, setCostStats] = useState({ cost: null, purchases: null });
+  const [costStats, setCostStats] = useState({ cost: null, closingStock: null });
   const [loadingCostStats, setLoadingCostStats] = useState(true);
   const [errorCostStats, setErrorCostStats] = useState(null);
 
@@ -70,9 +70,9 @@ function StockView({ selectedPharmacy, selectedDate }) {
     if (!selectedPharmacy || !selectedDate) {
       // Reset all states if no pharmacy or date
       setOpeningStock(null); setLoadingOpeningStock(true); setErrorOpeningStock(null);
-      setAvgBasket({ value: null, size: null }); setLoadingAvgBasket(true); setErrorAvgBasket(null);
-      setGpStats({ percent: null, value: null }); setLoadingGpStats(true); setErrorGpStats(null);
-      setCostStats({ cost: null, purchases: null }); setLoadingCostStats(true); setErrorCostStats(null);
+      setPurchasesStats(null); setLoadingPurchases(true); setErrorPurchases(null);
+      setAdjustmentsStats(null); setLoadingAdjustments(true); setErrorAdjustments(null);
+      setCostStats({ cost: null, closingStock: null }); setLoadingCostStats(true); setErrorCostStats(null);
       setTransStats({ transactions: null, scripts: null }); setLoadingTransStats(true); setErrorTransStats(null);
       setDispPie({ percent: null, disp: null, total: null }); setLoadingDispPie(true); setErrorDispPie(null);
       setCombinedChartData([]); setLoadingCombinedChart(true); setErrorCombinedChart(null);
@@ -81,9 +81,9 @@ function StockView({ selectedPharmacy, selectedDate }) {
 
     // Set loading states to true and reset errors/data for new fetch
     setLoadingOpeningStock(true); setErrorOpeningStock(null); setOpeningStock(null);
-    setLoadingAvgBasket(true); setErrorAvgBasket(null); setAvgBasket({ value: null, size: null });
-    setLoadingGpStats(true); setErrorGpStats(null); setGpStats({ percent: null, value: null });
-    setLoadingCostStats(true); setErrorCostStats(null); setCostStats({ cost: null, purchases: null });
+    setLoadingPurchases(true); setErrorPurchases(null); setPurchasesStats(null);
+    setLoadingAdjustments(true); setErrorAdjustments(null); setAdjustmentsStats(null);
+    setLoadingCostStats(true); setErrorCostStats(null); setCostStats({ cost: null, closingStock: null });
     setLoadingTransStats(true); setErrorTransStats(null); setTransStats({ transactions: null, scripts: null });
     setLoadingDispPie(true); setErrorDispPie(null); setDispPie({ percent: null, disp: null, total: null });
     setLoadingCombinedChart(true); setErrorCombinedChart(null); setCombinedChartData([]);
@@ -108,45 +108,53 @@ function StockView({ selectedPharmacy, selectedDate }) {
         setLoadingOpeningStock(false);
       });
 
-    // Fetch avg basket value/size for the month
-    axios.get(`${API_BASE_URL}/api/avg_basket_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
-      headers: { 'X-Pharmacy': selectedPharmacy }
-    })
-      .then(res => {
-        setAvgBasket({ value: res.data?.avg_basket_value ?? 0, size: res.data?.avg_basket_size ?? 0 });
-        setLoadingAvgBasket(false);
-      })
-      .catch(err => {
-        setErrorAvgBasket('Error fetching basket metrics.');
-        setAvgBasket({ value: 0, size: 0 });
-        setLoadingAvgBasket(false);
-      });
-
-    // Fetch GP stats for the month
-    axios.get(`${API_BASE_URL}/api/gp_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
-      headers: { 'X-Pharmacy': selectedPharmacy }
-    })
-      .then(res => {
-        setGpStats({ percent: res.data?.avg_gp_percent ?? 0, value: res.data?.cumulative_gp_value ?? 0 });
-        setLoadingGpStats(false);
-      })
-      .catch(err => {
-        setErrorGpStats('Error fetching GP stats.');
-        setGpStats({ percent: 0, value: 0 });
-        setLoadingGpStats(false);
-      });
-
-    // Fetch cost of sales and purchases for the month
+    // Fetch monthly purchases
     axios.get(`${API_BASE_URL}/api/costs_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
-        setCostStats({ cost: res.data?.cost_of_sales ?? 0, purchases: res.data?.purchases ?? 0 });
+        setPurchasesStats(res.data?.purchases ?? 0);
+        setLoadingPurchases(false);
+      })
+      .catch(err => {
+        setErrorPurchases('Error fetching purchases.');
+        setPurchasesStats(0);
+        setLoadingPurchases(false);
+      });
+
+    // Fetch monthly stock adjustments
+    axios.get(`${API_BASE_URL}/api/stock_adjustments_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+      headers: { 'X-Pharmacy': selectedPharmacy }
+    })
+      .then(res => {
+        setAdjustmentsStats(res.data?.stock_adjustments ?? 0);
+        setLoadingAdjustments(false);
+      })
+      .catch(err => {
+        setErrorAdjustments('Error fetching adjustments.');
+        setAdjustmentsStats(0);
+        setLoadingAdjustments(false);
+      });
+
+    // Fetch cost of sales and closing stock for the month
+    Promise.all([
+      axios.get(`${API_BASE_URL}/api/costs_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+        headers: { 'X-Pharmacy': selectedPharmacy }
+      }),
+      axios.get(`${API_BASE_URL}/api/closing_stock_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+        headers: { 'X-Pharmacy': selectedPharmacy }
+      })
+    ])
+      .then(([costRes, closingStockRes]) => {
+        setCostStats({ 
+          cost: costRes.data?.cost_of_sales ?? 0, 
+          closingStock: closingStockRes.data?.closing_stock ?? 0 
+        });
         setLoadingCostStats(false);
       })
       .catch(err => {
         setErrorCostStats('Error fetching cost stats.');
-        setCostStats({ cost: 0, purchases: 0 });
+        setCostStats({ cost: 0, closingStock: 0 });
         setLoadingCostStats(false);
       });
 
@@ -299,7 +307,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
         )}
       </div>
 
-      {/* Opening Stock KPI Card */}
+      {/* Opening Stock KPI Card - Removed basket info */}
       <div style={{
         width: 'calc(100vw - 5mm)',
         marginLeft: '2mm',
@@ -322,40 +330,26 @@ function StockView({ selectedPharmacy, selectedDate }) {
           {loadingOpeningStock ? 'Loading...' : errorOpeningStock ? <span style={errorStyle}>{errorOpeningStock}</span> :
             `R ${openingStock !== null ? Math.round(openingStock).toLocaleString('en-ZA', { maximumFractionDigits: 0 }) : 'N/A'}`}
         </div>
-        <div style={{ position: 'absolute', top: 22, right: 18, display: 'flex', flexDirection: 'row', alignItems: 'flex-end', gap: 18 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#bdbdbd', fontWeight: 400, lineHeight: 1 }}>Avg basket</span>
-            <span style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 600, lineHeight: 2.5 }}>
-              {loadingAvgBasket ? '...' : errorAvgBasket ? <span style={{ color: 'red', fontSize: '0.9rem' }}>Err</span> : `R${avgBasket.value !== null ? avgBasket.value.toLocaleString('en-ZA', { maximumFractionDigits: 2 }) : 'N/A'}`}
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#bdbdbd', fontWeight: 400, lineHeight: 1 }}>Avg size</span>
-            <span style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 600, lineHeight: 2.5 }}>
-              {loadingAvgBasket ? '...' : errorAvgBasket ? <span style={{ color: 'red', fontSize: '0.9rem' }}>Err</span> : `${avgBasket.size !== null ? avgBasket.size.toLocaleString('en-ZA', { maximumFractionDigits: 2 }) : 'N/A'}`}
-            </span>
-          </div>
-        </div>
       </div>
 
-      {/* Row 1 of KPI Cards */}
+      {/* Row 1 of KPI Cards - Updated to show Purchases and Adjustments */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'row', gap: '1.5mm', alignItems: 'stretch', justifyContent: 'center', marginBottom: '2mm', padding: 0, boxSizing: 'border-box' }}>
-        {/* Left card: Monthly GP% and GP Value */}
+        {/* Left card: Monthly Purchases and Adjustments */}
         <div style={{
           width: 'calc(50vw - 2.5mm)', background: '#232b3b', borderRadius: '1.2rem', boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
           minHeight: '60px', marginLeft: '1.5mm', marginRight: 0, display: 'flex', flexDirection: 'column',
           justifyContent: 'center', alignItems: 'flex-start', padding: '0.5rem 1.2rem',
         }}>
-          <div style={cardLabelStyle}>Monthly GP%</div>
+          <div style={cardLabelStyle}>Monthly Purchases</div>
           <div style={{...cardValueStyle, marginBottom: 10 }}>
-            {loadingGpStats ? '...' : errorGpStats ? <span style={errorStyle}>Err</span> : gpStats.percent !== null ? `${gpStats.percent.toLocaleString('en-ZA', { maximumFractionDigits: 2 })}%` : 'N/A'}
+            {loadingPurchases ? '...' : errorPurchases ? <span style={errorStyle}>Err</span> : purchasesStats !== null ? `R${purchasesStats.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}` : 'N/A'}
           </div>
-          <div style={cardLabelStyle}>GP Value</div>
+          <div style={cardLabelStyle}>Adjustments</div>
           <div style={cardValueStyle}>
-            {loadingGpStats ? '...' : errorGpStats ? <span style={errorStyle}>Err</span> : gpStats.value !== null ? `R${gpStats.value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}` : 'N/A'}
+            {loadingAdjustments ? '...' : errorAdjustments ? <span style={errorStyle}>Err</span> : adjustmentsStats !== null ? `R${adjustmentsStats.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}` : 'N/A'}
           </div>
         </div>
-        {/* Right card: Cost of Sales and Purchases */}
+        {/* Right card: Cost of Sales and Closing Stock */}
         <div style={{
           width: 'calc(50vw - 2.5mm)', background: '#232b3b', borderRadius: '1.2rem', boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
           minHeight: '60px', marginLeft: 0, marginRight: '1.5mm', display: 'flex', flexDirection: 'column',
@@ -365,9 +359,9 @@ function StockView({ selectedPharmacy, selectedDate }) {
           <div style={{ color: '#39FF14', fontSize: '1.25rem', fontWeight: 700, marginBottom: 10 }}>
             {loadingCostStats ? '...' : errorCostStats ? <span style={errorStyle}>Err</span> : costStats.cost !== null ? `R${costStats.cost.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}` : 'N/A'}
           </div>
-          <div style={cardLabelStyle}>Purchases</div>
+          <div style={cardLabelStyle}>Closing Stock</div>
           <div style={{ color: '#FF4500', fontSize: '1.25rem', fontWeight: 700 }}>
-            {loadingCostStats ? '...' : errorCostStats ? <span style={errorStyle}>Err</span> : costStats.purchases !== null ? `R${costStats.purchases.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}` : 'N/A'}
+            {loadingCostStats ? '...' : errorCostStats ? <span style={errorStyle}>Err</span> : costStats.closingStock !== null ? `R${costStats.closingStock.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}` : 'N/A'}
           </div>
         </div>
       </div>
