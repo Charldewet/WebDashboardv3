@@ -693,7 +693,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
               return null;
             })()}
             
-            <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart 
                 data={yoyComparisonData.map(item => ({
                   category: item.category || 'Day',
@@ -743,11 +743,15 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   dataKey="currentYear" 
                   name="This Year" 
                   fill="#FF4500"
+                  barSize={20}
+                  maxBarSize={20}
                 />
                 <Bar 
                   dataKey="lastYear" 
                   name="Last Year" 
                   fill="#39FF14"
+                  barSize={20}
+                  maxBarSize={20}
                 />
               </BarChart>
             </ResponsiveContainer>
