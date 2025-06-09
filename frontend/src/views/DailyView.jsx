@@ -703,7 +703,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                     currentDate: item.currentDate,
                     lastYearDate: item.lastYearDate
                   }))} 
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                  margin={{ top: 20, right: 30, left: 5, bottom: 20 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis 
@@ -728,12 +728,12 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   <Tooltip content={<CustomYoYTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
                   <Legend 
                     verticalAlign="top" 
-                    height={36} 
+                    height={18} 
                     wrapperStyle={{
                       fontSize: "12px", 
                       color: "#bdbdbd", 
                       paddingTop: "0px", 
-                      paddingBottom: "10px"
+                      paddingBottom: "5px"
                     }} 
                   />
                   <Bar 
@@ -780,7 +780,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                 return details ? (
                   <div style={{
                     position: 'absolute',
-                    bottom: '12px',
+                    bottom: '27px',
                     right: '12px',
                     background: 'rgba(255, 69, 0, 0.85)', // Orange #FF4500 with opacity
                     color: '#FFFFFF', // White text for all content
