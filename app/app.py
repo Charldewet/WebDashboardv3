@@ -417,6 +417,31 @@ def get_daily_dispensary_turnover_for_range(start_date, end_date):
     session.close()
     return jsonify({"pharmacy": pharmacy, "daily_dispensary_turnover": daily_dispensary_turnover})
 
+@api_bp.route('/status', methods=['GET'])
+@memory_cleanup  
+def app_status():
+    """Get application status including periodic fetch info."""
+    try:
+        process = psutil.Process(os.getpid())
+        memory_usage = process.memory_info().rss / 1024 ** 2
+        
+        # Count active threads
+        thread_count = threading.active_count()
+        
+        return jsonify({
+            "status": "running",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "memory_mb": round(memory_usage, 2),
+            "thread_count": thread_count,
+            "periodic_fetch_enabled": os.environ.get("RENDER") == "true",
+            "environment": "production" if os.environ.get("RENDER") == "true" else "development"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
 @api_bp.route('/health', methods=['GET'])
 @memory_cleanup
 def health_check():
@@ -484,7 +509,7 @@ def force_update():
             ['python3', 'scripts/fetch_latest.py'],
             capture_output=True,
             text=True,
-            timeout=600  # Reduced back to 10 minutes for safety
+            timeout=300  # Reduced to 5 minutes to match periodic fetch
         )
         print("=== subprocess finished ===", flush=True)
         
@@ -521,10 +546,10 @@ def force_update():
             }), 500
             
     except subprocess.TimeoutExpired:
-        print("Force update timeout after 10 minutes", flush=True)
+        print("Force update timeout after 5 minutes", flush=True)
         return jsonify({
             "status": "error", 
-            "message": "Email fetch timed out after 10 minutes"
+            "message": "Email fetch timed out after 5 minutes"
         }), 500
     except FileNotFoundError:
         print("fetch_latest.py script not found", flush=True)
@@ -541,6 +566,10 @@ def force_update():
         }), 500
 
 def periodic_fetch():
+    # Wait 5 minutes after startup before starting periodic fetches
+    print("[Periodic Fetch] Waiting 5 minutes before starting periodic fetch...", flush=True)
+    time.sleep(300)  # Wait 5 minutes for system to stabilize
+    
     while True:
         print("=== [Periodic Fetch] Loop Start ===", flush=True)
         try:
@@ -549,22 +578,25 @@ def periodic_fetch():
             
             # Much more aggressive memory threshold for Render
             if mem_usage > 200:  # Reduced from 350MB to 200MB for Render
-                print(f"[Periodic Fetch] Memory usage exceeded 200MB, exiting process to allow restart.", flush=True)
-                os._exit(1)
+                print(f"[Periodic Fetch] Memory usage exceeded 200MB, skipping this cycle.", flush=True)
+                # Don't exit, just skip this cycle
+                time.sleep(600)
+                continue
             
             try:
                 print("[Periodic Fetch] Starting email fetch process...", flush=True)
+                # Use a shorter timeout for production stability
                 result = subprocess.run(
                     ['python3', 'scripts/fetch_latest.py'],
                     capture_output=True,
                     text=True,
-                    timeout=600  # Reduced back to 10 minutes to be safer
+                    timeout=300  # Reduced to 5 minutes to prevent hanging
                 )
                 
                 if result.stdout:
-                    print(f"[Periodic Fetch] Script output: {result.stdout}", flush=True)
+                    print(f"[Periodic Fetch] Script output: {result.stdout[-500:]}", flush=True)  # Only last 500 chars
                 if result.stderr:
-                    print(f"[Periodic Fetch] Script errors: {result.stderr}", flush=True)
+                    print(f"[Periodic Fetch] Script errors: {result.stderr[-500:]}", flush=True)  # Only last 500 chars
                     
                 if result.returncode != 0:
                     print(f"[Periodic Fetch] Script failed with return code: {result.returncode}", flush=True)
@@ -572,7 +604,12 @@ def periodic_fetch():
                     print("[Periodic Fetch] Email fetch completed successfully", flush=True)
                     
             except subprocess.TimeoutExpired:
-                print("[Periodic Fetch] Script timeout after 10 minutes, continuing...", flush=True)
+                print("[Periodic Fetch] Script timeout after 5 minutes, continuing...", flush=True)
+                # Kill any hanging processes
+                try:
+                    subprocess.run(['pkill', '-f', 'fetch_latest.py'], timeout=10)
+                except:
+                    pass
             except FileNotFoundError:
                 print("[Periodic Fetch] Error: fetch_latest.py not found", flush=True)
             except Exception as e:
@@ -590,9 +627,10 @@ def periodic_fetch():
             print(f"[Periodic Fetch] Memory usage after: {mem_usage_after:.2f} MB", flush=True)
             
             # Additional safety check after processing
-            if mem_usage_after > 250:  # Even after cleanup, if still high, restart
-                print(f"[Periodic Fetch] Memory still high after cleanup ({mem_usage_after:.2f} MB), restarting...", flush=True)
-                os._exit(1)
+            if mem_usage_after > 250:  # Even after cleanup, if still high, skip next few cycles
+                print(f"[Periodic Fetch] Memory still high after cleanup ({mem_usage_after:.2f} MB), sleeping longer...", flush=True)
+                time.sleep(1800)  # Sleep 30 minutes if memory is high
+                continue
         except Exception as e:
             print(f"[Periodic Fetch] Error checking memory after fetch: {e}", flush=True)
             
@@ -600,14 +638,14 @@ def periodic_fetch():
         time.sleep(600)
 
 def start_periodic_fetch_once():
-    # Only start in the main process, not in Gunicorn worker forks
-    if (
-        os.environ.get("RUN_MAIN") == "true" or
-        os.environ.get("WERKZEUG_RUN_MAIN") == "true" or
-        os.environ.get("RENDER") == "true" or
-        os.environ.get("FLASK_ENV") == "development"
-    ):
+    # Only start in production environments and only in one process
+    if os.environ.get("RENDER") == "true":
+        # Only start periodic fetch in production on Render
+        # Use a separate thread that won't block the main application
         threading.Thread(target=periodic_fetch, daemon=True).start()
+        print("[Startup] Periodic fetch thread started for Render environment", flush=True)
+    else:
+        print("[Startup] Periodic fetch disabled for local development", flush=True)
 
 start_periodic_fetch_once()
 
