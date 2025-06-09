@@ -19,9 +19,9 @@ Session(app)
 
 # Enable CORS for requests from frontend domain
 CORS(app, 
-     origins=['https://webdashfront.onrender.com', 'http://localhost:5175', 'http://localhost:3000', 'http://localhost:5000'],
+     origins=['https://webdashfront.onrender.com', 'http://localhost:5175', 'http://localhost:3000', 'http://localhost:5002'],
      supports_credentials=True,
-     allow_headers=['Content-Type', 'X-Pharmacy', 'Authorization'],
+     allow_headers=['Content-Type', 'X-Pharmacy', 'Authorization', 'Accept'],
      methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
 # Register the Blueprint from the imported module
