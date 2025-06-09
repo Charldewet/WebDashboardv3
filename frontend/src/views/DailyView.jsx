@@ -54,8 +54,11 @@ const CustomYoYTooltip = ({ active, payload, label }) => {
         fontWeight: 500,
         boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
       }}>
-        {data?.currentDate && (
-          <p style={{ margin: 0, color: '#bdbdbd', fontSize: '0.8rem', textAlign: 'center' }}>
+        <p style={{ margin: 0, color: '#fff', fontSize: '0.95rem', fontWeight: 600, textAlign: 'center' }}>
+          {label}
+        </p>
+        {data?.currentDate && data?.lastYearDate && (
+          <p style={{ margin: '0.2rem 0', color: '#bdbdbd', fontSize: '0.8rem', textAlign: 'center' }}>
             {new Date(data.currentDate).toLocaleDateString('en-ZA')} vs {new Date(data.lastYearDate).toLocaleDateString('en-ZA')}
           </p>
         )}
@@ -72,6 +75,11 @@ const CustomYoYTooltip = ({ active, payload, label }) => {
         {currentYearData && lastYearData && lastYearData.value > 0 && (
           <p style={{ margin: '0.4rem 0 0 0', color: '#bdbdbd', fontSize: '0.85rem' }}>
             {`Change: ${((currentYearData.value - lastYearData.value) / lastYearData.value * 100).toFixed(1)}%`}
+          </p>
+        )}
+        {data?.isToday && (
+          <p style={{ margin: '0.4rem 0 0 0', color: '#FFB800', fontSize: '0.8rem', fontWeight: 600, textAlign: 'center' }}>
+            📅 Today
           </p>
         )}
       </div>
@@ -295,18 +303,6 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       const correspondingDate = new Date(sameDataLastYear);
       correspondingDate.setDate(sameDataLastYear.getDate() + dayDifference);
       
-      // Development logging to verify calculation
-      if (process.env.NODE_ENV === 'development') {
-        const currentDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
-        const sameDataLastYearDayName = sameDataLastYear.toLocaleDateString('en-US', { weekday: 'long' });
-        const correspondingDayName = correspondingDate.toLocaleDateString('en-US', { weekday: 'long' });
-        console.log(`Year-over-Year Date Calculation:
-          Selected: ${dateString} (${currentDayName})
-          Same date last year: ${sameDataLastYear.getFullYear()}-${(sameDataLastYear.getMonth() + 1).toString().padStart(2, '0')}-${sameDataLastYear.getDate().toString().padStart(2, '0')} (${sameDataLastYearDayName})
-          Corresponding day: ${correspondingDate.getFullYear()}-${(correspondingDate.getMonth() + 1).toString().padStart(2, '0')}-${correspondingDate.getDate().toString().padStart(2, '0')} (${correspondingDayName})
-          Days adjusted: ${dayDifference}`);
-      }
-      
       // Return in YYYY-MM-DD format
       const year = correspondingDate.getFullYear();
       const month = (correspondingDate.getMonth() + 1).toString().padStart(2, '0');
@@ -314,57 +310,78 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       return `${year}-${month}-${day}`;
     };
 
-    // Test function to verify specific date calculations
-    const testDateCalculation = () => {
-      const testCases = [
-        '2025-06-07', // Saturday - should map to Saturday June 8, 2024
-        '2024-06-07', // Friday - should map to Friday June 9, 2023
-        '2024-12-25', // Wednesday - should map to Wednesday Dec 27, 2023
-        '2024-02-29', // Thursday (leap year) - should map to Thursday March 2, 2023
-      ];
+    // Calculate 7-day rolling window for year-over-year comparison
+    const calculate7DayWindow = (selectedDate) => {
+      const endDate = new Date(selectedDate + 'T00:00:00');
+      const dates = [];
       
-      console.log('=== Year-over-Year Date Calculation Tests ===');
-      testCases.forEach(testDate => {
-        const result = getCorrespondingDayLastYear(testDate);
-        console.log(`${testDate} → ${result}`);
-      });
-      console.log('=== End Tests ===');
+      // Get 7 days ending with the selected date
+      for (let i = 6; i >= 0; i--) {
+        const currentDate = new Date(endDate);
+        currentDate.setDate(endDate.getDate() - i);
+        const dateStr = currentDate.toISOString().slice(0, 10);
+        const correspondingLastYear = getCorrespondingDayLastYear(dateStr);
+        
+        dates.push({
+          currentYear: dateStr,
+          lastYear: correspondingLastYear
+        });
+      }
+      
+      return dates;
     };
 
-    // Run test for development
-    if (process.env.NODE_ENV === 'development') {
-      testDateCalculation();
-    }
+    const dateWindow = calculate7DayWindow(singleDate);
+    const currentYearDates = dateWindow.map(d => d.currentYear);
+    const lastYearDates = dateWindow.map(d => d.lastYear);
 
-    const correspondingDayLastYear = getCorrespondingDayLastYear(singleDate);
-
-    // Fetch current year and last year data for comparison
-    const fetchCurrentYearData = axios.get(`${API_BASE_URL}/api/turnover_for_range/${singleDate}/${singleDate}`, {
+    // Fetch 7 days of current year data
+    const fetchCurrentWeekData = axios.get(`${API_BASE_URL}/api/daily_turnover_for_range/${currentYearDates[0]}/${currentYearDates[currentYearDates.length - 1]}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     });
 
-    const fetchLastYearData = axios.get(`${API_BASE_URL}/api/turnover_for_range/${correspondingDayLastYear}/${correspondingDayLastYear}`, {
+    // Fetch corresponding 7 days of last year data
+    const fetchLastYearWeekData = axios.get(`${API_BASE_URL}/api/daily_turnover_for_range/${lastYearDates[0]}/${lastYearDates[lastYearDates.length - 1]}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     });
 
-    Promise.all([fetchCurrentYearData, fetchLastYearData])
-      .then(([currentRes, lastYearRes]) => {
-        const currentYearTurnover = currentRes.data?.turnover || 0;
-        const lastYearTurnover = lastYearRes.data?.turnover || 0;
+    Promise.all([fetchCurrentWeekData, fetchLastYearWeekData])
+      .then(([currentWeekRes, lastYearWeekRes]) => {
+        const currentWeekData = currentWeekRes.data?.daily_turnover || [];
+        const lastYearWeekData = lastYearWeekRes.data?.daily_turnover || [];
         
-        const currentDate = new Date(singleDate);
-        const lastYearDate = new Date(correspondingDayLastYear);
-        const currentDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+        // Create map for easy lookup
+        const currentDataMap = {};
+        const lastYearDataMap = {};
         
-        const yoyData = [
-          {
-            category: currentDayName,
-            currentYear: currentYearTurnover,
-            lastYear: lastYearTurnover,
-            currentDate: singleDate,
-            lastYearDate: correspondingDayLastYear
-          }
-        ];
+        currentWeekData.forEach(d => {
+          currentDataMap[d.date] = d.turnover || 0;
+        });
+        
+        lastYearWeekData.forEach(d => {
+          lastYearDataMap[d.date] = d.turnover || 0;
+        });
+        
+        // Build comparison data for each day in the 7-day window
+        const yoyData = dateWindow.map(({ currentYear, lastYear }) => {
+          const currentDate = new Date(currentYear);
+          const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
+          const monthDay = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          
+          return {
+            dayLabel: `${dayName}, ${monthDay}`,
+            currentYear: currentDataMap[currentYear] || 0,
+            lastYear: lastYearDataMap[lastYear] || 0,
+            currentDate: currentYear,
+            lastYearDate: lastYear,
+            isToday: currentYear === singleDate
+          };
+        });
+
+        // Development logging
+        if (process.env.NODE_ENV === 'development') {
+          console.log('7-Day YoY Comparison Data:', yoyData);
+        }
 
         setYoyComparisonData(yoyData);
         setLoadingYoyComparison(false);
@@ -613,7 +630,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
         boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
         padding: '1rem',
         marginBottom: '1rem',
-        height: '280px',
+        height: '380px',
         display: 'flex',
         flexDirection: 'column'
       }}>
@@ -624,9 +641,9 @@ function DailyView({ selectedPharmacy, selectedDate }) {
           textAlign: 'center', 
           color: '#fff' 
         }}>
-          {yoyComparisonData.length > 0 && yoyComparisonData[0].currentDate ? 
-            `Sales Comparison: ${new Date(yoyComparisonData[0].currentDate).toLocaleDateString('en-ZA')} vs ${new Date(yoyComparisonData[0].lastYearDate).toLocaleDateString('en-ZA')}` :
-            'Sales Comparison: Today vs Same Day Last Year'
+          {yoyComparisonData.length > 0 ? 
+            `7-Day Sales Comparison: This Year vs Last Year` :
+            '7-Day Sales Comparison: This Year vs Last Year'
           }
         </div>
         
@@ -655,15 +672,14 @@ function DailyView({ selectedPharmacy, selectedDate }) {
         ) : yoyComparisonData.length > 0 ? (
           <>
             <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
-              <ComposedChart data={yoyComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+              <ComposedChart 
+                layout="horizontal"
+                data={yoyComparisonData} 
+                margin={{ top: 20, right: 30, left: 80, bottom: 20 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 
-                  dataKey="category" 
-                  tick={{ fontSize: 12, fill: '#9CA3AF' }} 
-                  axisLine={{ stroke: '#4B5563' }} 
-                  tickLine={{ stroke: '#4B5563' }}
-                />
-                <YAxis 
+                  type="number"
                   tick={{ fontSize: 11, fill: '#9CA3AF' }}
                   tickFormatter={(value) => {
                     if (value >= 1000000) return `R${(value/1000000).toFixed(1)}M`;
@@ -672,6 +688,14 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   }}
                   axisLine={{ stroke: '#4B5563' }}
                   tickLine={{ stroke: '#4B5563' }}
+                />
+                <YAxis 
+                  type="category"
+                  dataKey="dayLabel" 
+                  tick={{ fontSize: 10, fill: '#9CA3AF' }} 
+                  axisLine={{ stroke: '#4B5563' }} 
+                  tickLine={{ stroke: '#4B5563' }}
+                  width={75}
                 />
                 <Tooltip content={<CustomYoYTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
                 <Legend 
@@ -688,15 +712,15 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   dataKey="currentYear" 
                   name="This Year" 
                   fill="#FF4500" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={60}
+                  radius={[0, 4, 4, 0]} 
+                  barSize={20}
                 />
                 <Bar 
                   dataKey="lastYear" 
                   name="Last Year" 
                   fill="#39FF14" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={60}
+                  radius={[0, 4, 4, 0]} 
+                  barSize={20}
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -707,7 +731,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
               paddingTop: '4px', 
               flexShrink: 0 
             }}>
-              Comparing {yoyComparisonData[0]?.category} sales
+              7-day rolling comparison ending {new Date(singleDate).toLocaleDateString('en-ZA')}
             </div>
           </>
         ) : (
