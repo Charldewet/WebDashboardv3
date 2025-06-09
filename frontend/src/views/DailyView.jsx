@@ -731,7 +731,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
               paddingTop: '4px', 
               flexShrink: 0 
             }}>
-              7-day rolling comparison ending {new Date(singleDate).toLocaleDateString('en-ZA')}
+              7-day rolling comparison ending {new Date(selectedDate).toLocaleDateString('en-ZA')}
             </div>
           </>
         ) : (
