@@ -277,7 +277,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
 
     // Calculate corresponding day last year and fetch year-over-year comparison data
     const getCorrespondingDayLastYear = (dateString) => {
-      const currentDate = new Date(dateString);
+      const currentDate = new Date(dateString + 'T00:00:00'); // Ensure proper parsing as local date
       const currentYear = currentDate.getFullYear();
       const lastYear = currentYear - 1;
       
@@ -295,8 +295,46 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       const correspondingDate = new Date(sameDataLastYear);
       correspondingDate.setDate(sameDataLastYear.getDate() + dayDifference);
       
-      return correspondingDate.toISOString().slice(0, 10); // YYYY-MM-DD format
+      // Development logging to verify calculation
+      if (process.env.NODE_ENV === 'development') {
+        const currentDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const sameDataLastYearDayName = sameDataLastYear.toLocaleDateString('en-US', { weekday: 'long' });
+        const correspondingDayName = correspondingDate.toLocaleDateString('en-US', { weekday: 'long' });
+        console.log(`Year-over-Year Date Calculation:
+          Selected: ${dateString} (${currentDayName})
+          Same date last year: ${sameDataLastYear.getFullYear()}-${(sameDataLastYear.getMonth() + 1).toString().padStart(2, '0')}-${sameDataLastYear.getDate().toString().padStart(2, '0')} (${sameDataLastYearDayName})
+          Corresponding day: ${correspondingDate.getFullYear()}-${(correspondingDate.getMonth() + 1).toString().padStart(2, '0')}-${correspondingDate.getDate().toString().padStart(2, '0')} (${correspondingDayName})
+          Days adjusted: ${dayDifference}`);
+      }
+      
+      // Return in YYYY-MM-DD format
+      const year = correspondingDate.getFullYear();
+      const month = (correspondingDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = correspondingDate.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
     };
+
+    // Test function to verify specific date calculations
+    const testDateCalculation = () => {
+      const testCases = [
+        '2025-06-07', // Saturday - should map to Saturday June 8, 2024
+        '2024-06-07', // Friday - should map to Friday June 9, 2023
+        '2024-12-25', // Wednesday - should map to Wednesday Dec 27, 2023
+        '2024-02-29', // Thursday (leap year) - should map to Thursday March 2, 2023
+      ];
+      
+      console.log('=== Year-over-Year Date Calculation Tests ===');
+      testCases.forEach(testDate => {
+        const result = getCorrespondingDayLastYear(testDate);
+        console.log(`${testDate} → ${result}`);
+      });
+      console.log('=== End Tests ===');
+    };
+
+    // Run test for development
+    if (process.env.NODE_ENV === 'development') {
+      testDateCalculation();
+    }
 
     const correspondingDayLastYear = getCorrespondingDayLastYear(singleDate);
 
