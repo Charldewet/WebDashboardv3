@@ -373,8 +373,8 @@ function StockView({ selectedPharmacy, selectedDate }) {
               <PieChart width={160} height={90} style={{ marginTop: 0 }}>
                 <Pie
                   data={[
-                    { name: 'Ratio', value: Math.min(turnoverRatio.ratio * 20, 100) }, // Scale for visual representation
-                    { name: 'Remaining', value: Math.max(100 - (turnoverRatio.ratio * 20), 0) },
+                    { name: 'Ratio', value: Math.min(turnoverRatio.ratio * 75, 100) }, // 1.0 ratio = 75% fill
+                    { name: 'Remaining', value: Math.max(100 - (turnoverRatio.ratio * 75), 0) },
                   ]}
                   cx={80}
                   cy={74}
@@ -416,8 +416,8 @@ function StockView({ selectedPharmacy, selectedDate }) {
               <PieChart width={160} height={90} style={{ marginTop: 0 }}>
                 <Pie
                   data={[
-                    { name: 'Days', value: Math.min(daysOfInventory.days, 365) }, // Cap at 365 days for visual
-                    { name: 'Remaining', value: Math.max(365 - daysOfInventory.days, 0) },
+                    { name: 'Days', value: Math.min((daysOfInventory.days / 60) * 100, 100) }, // 60 days = 100% fill
+                    { name: 'Remaining', value: Math.max(100 - ((daysOfInventory.days / 60) * 100), 0) },
                   ]}
                   cx={80}
                   cy={74}
