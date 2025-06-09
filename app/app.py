@@ -422,19 +422,38 @@ def get_opening_stock_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
     
-    # Get the first report in the range for opening stock
+    # First try to get the specific report for the start_date (first day of month)
     query = session.query(DailyReport).filter(
         DailyReport.pharmacy_code == pharmacy,
-        DailyReport.report_date >= start_date,
-        DailyReport.report_date <= end_date
-    ).order_by(DailyReport.report_date).first()
+        DailyReport.report_date == start_date
+    ).first()
+    
+    # If no data for the exact first day, get the first available report in the month with opening stock
+    if not query or not query.opening_stock_today:
+        # Get the first day of the month from start_date
+        from datetime import datetime
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+        year = start_date_obj.year
+        month = start_date_obj.month
+        
+        # Look for the first available report in the same month with opening stock data
+        query = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy,
+            DailyReport.report_date >= start_date,
+            DailyReport.report_date < f'{year}-{month+1:02d}-01' if month < 12 else f'{year+1}-01-01',
+            DailyReport.opening_stock_today.isnot(None),
+            DailyReport.opening_stock_today > 0
+        ).order_by(DailyReport.report_date).first()
     
     opening_stock = query.opening_stock_today if query and query.opening_stock_today else 0
+    actual_date = query.report_date.strftime('%Y-%m-%d') if query else start_date
     
     session.close()
     return jsonify({
         'pharmacy': pharmacy,
-        'opening_stock': round(opening_stock, 2)
+        'opening_stock': round(opening_stock, 2),
+        'date_queried': start_date,
+        'actual_date_used': actual_date
     })
 
 @api_bp.route('/status', methods=['GET'])
