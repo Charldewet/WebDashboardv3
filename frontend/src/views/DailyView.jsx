@@ -655,15 +655,14 @@ function DailyView({ selectedPharmacy, selectedDate }) {
         ) : yoyComparisonData.length > 0 ? (
           <>
             <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
-              <ComposedChart data={yoyComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+              <ComposedChart 
+                data={yoyComparisonData} 
+                layout="horizontal"
+                margin={{ top: 20, right: 30, left: 80, bottom: 20 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 
-                  dataKey="category" 
-                  tick={{ fontSize: 12, fill: '#9CA3AF' }} 
-                  axisLine={{ stroke: '#4B5563' }} 
-                  tickLine={{ stroke: '#4B5563' }}
-                />
-                <YAxis 
+                  type="number"
                   tick={{ fontSize: 11, fill: '#9CA3AF' }}
                   tickFormatter={(value) => {
                     if (value >= 1000000) return `R${(value/1000000).toFixed(1)}M`;
@@ -672,6 +671,14 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   }}
                   axisLine={{ stroke: '#4B5563' }}
                   tickLine={{ stroke: '#4B5563' }}
+                />
+                <YAxis 
+                  type="category"
+                  dataKey="category" 
+                  tick={{ fontSize: 12, fill: '#9CA3AF' }} 
+                  axisLine={{ stroke: '#4B5563' }} 
+                  tickLine={{ stroke: '#4B5563' }}
+                  width={70}
                 />
                 <Tooltip content={<CustomYoYTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
                 <Legend 
@@ -688,15 +695,15 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   dataKey="currentYear" 
                   name="This Year" 
                   fill="#FF4500" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={60}
+                  radius={[0, 4, 4, 0]} 
+                  barSize={30}
                 />
                 <Bar 
                   dataKey="lastYear" 
                   name="Last Year" 
                   fill="#39FF14" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={60}
+                  radius={[0, 4, 4, 0]} 
+                  barSize={30}
                 />
               </ComposedChart>
             </ResponsiveContainer>
