@@ -611,7 +611,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
 
       {/* Year-over-Year Comparison Chart */}
       <div style={{
-        width: 'calc(100vw - 5mm)',
+        width: 'calc(100vw - 4mm)',
         marginLeft: '2mm',
         marginRight: '2mm',
         background: '#232b3b',
@@ -780,7 +780,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                 return details ? (
                   <div style={{
                     position: 'absolute',
-                    bottom: '27px',
+                    bottom: '-3px',
                     right: '12px',
                     background: 'rgba(255, 69, 0, 0.85)', // Orange #FF4500 with opacity
                     color: '#FFFFFF', // White text for all content
