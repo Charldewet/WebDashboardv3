@@ -36,6 +36,50 @@ const CustomCombinedTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+// Custom Tooltip for Year-over-Year Comparison Chart
+const CustomYoYTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const currentYearData = payload.find(p => p.dataKey === 'currentYear');
+    const lastYearData = payload.find(p => p.dataKey === 'lastYear');
+    const data = payload[0]?.payload;
+
+    return (
+      <div style={{
+        background: 'rgba(35, 43, 59, 0.9)',
+        border: '1px solid #374151',
+        color: '#fff',
+        borderRadius: '0.8rem',
+        padding: '0.8rem 1.2rem',
+        fontSize: '0.9rem',
+        fontWeight: 500,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+      }}>
+        {data?.currentDate && (
+          <p style={{ margin: 0, color: '#bdbdbd', fontSize: '0.8rem', textAlign: 'center' }}>
+            {new Date(data.currentDate).toLocaleDateString('en-ZA')} vs {new Date(data.lastYearDate).toLocaleDateString('en-ZA')}
+          </p>
+        )}
+        {currentYearData && (
+          <p style={{ margin: '0.4rem 0 0 0', color: '#FF4500', fontSize: '1rem', fontWeight: 600 }}>
+            {`This Year: R ${currentYearData.value.toLocaleString('en-ZA')}`}
+          </p>
+        )}
+        {lastYearData && (
+          <p style={{ margin: '0.4rem 0 0 0', color: '#39FF14', fontSize: '1rem', fontWeight: 600 }}>
+            {`Last Year: R ${lastYearData.value.toLocaleString('en-ZA')}`}
+          </p>
+        )}
+        {currentYearData && lastYearData && lastYearData.value > 0 && (
+          <p style={{ margin: '0.4rem 0 0 0', color: '#bdbdbd', fontSize: '0.85rem' }}>
+            {`Change: ${((currentYearData.value - lastYearData.value) / lastYearData.value * 100).toFixed(1)}%`}
+          </p>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
 function DailyView({ selectedPharmacy, selectedDate }) {
   const [dailyTurnover, setDailyTurnover] = useState(null);
   const [loadingKpi, setLoadingKpi] = useState(true);
@@ -65,6 +109,11 @@ function DailyView({ selectedPharmacy, selectedDate }) {
   const [loadingCombinedChart, setLoadingCombinedChart] = useState(true);
   const [errorCombinedChart, setErrorCombinedChart] = useState(null);
 
+  // Year-over-year comparison chart states
+  const [yoyComparisonData, setYoyComparisonData] = useState([]);
+  const [loadingYoyComparison, setLoadingYoyComparison] = useState(true);
+  const [errorYoyComparison, setErrorYoyComparison] = useState(null);
+
   const API_BASE_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
@@ -77,6 +126,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       setTransStats({ transactions: null, scripts: null }); setLoadingTransStats(true); setErrorTransStats(null);
       setDispPie({ percent: null, disp: null, total: null }); setLoadingDispPie(true); setErrorDispPie(null);
       setCombinedChartData([]); setLoadingCombinedChart(true); setErrorCombinedChart(null);
+      setYoyComparisonData([]); setLoadingYoyComparison(true); setErrorYoyComparison(null);
       return;
     }
 
@@ -88,6 +138,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
     setLoadingTransStats(true); setErrorTransStats(null); setTransStats({ transactions: null, scripts: null });
     setLoadingDispPie(true); setErrorDispPie(null); setDispPie({ percent: null, disp: null, total: null });
     setLoadingCombinedChart(true); setErrorCombinedChart(null); setCombinedChartData([]);
+    setLoadingYoyComparison(true); setErrorYoyComparison(null); setYoyComparisonData([]);
 
     const singleDate = selectedDate; // Use selectedDate for both start and end
 
@@ -199,28 +250,91 @@ function DailyView({ selectedPharmacy, selectedDate }) {
     });
 
     Promise.all([fetchTurnover, fetchAvgBasket])
-      .then(([turnoverRes, avgBasketRes]) => {
-        const turnoverData = turnoverRes.data?.daily_turnover || [];
-        const avgBasketData = avgBasketRes.data?.daily_avg_basket || [];
+      .then(([turnoverRes, basketRes]) => {
+        const dailyTurnover = turnoverRes.data?.daily_turnover || [];
+        const dailyBasket = basketRes.data?.daily_avg_basket || [];
 
-        const mergedData = turnoverData.map(tItem => {
-          const basketItem = avgBasketData.find(bItem => bItem.date === tItem.date);
+        // Combine turnover and basket data
+        const combinedData = dailyTurnover.map((turnoverItem, index) => {
+          const basketItem = dailyBasket.find(b => b.date === turnoverItem.date) || {};
+          const isToday = turnoverItem.date === singleDate;
           return {
-            date: tItem.date.slice(5, 10), // MM-DD for label
-            originalDate: tItem.date, // YYYY-MM-DD for comparison
-            turnover: tItem.turnover || 0,
-            avg_basket_value: basketItem ? (basketItem.avg_basket_value || 0) : 0,
-            fill: tItem.date === selectedDate ? '#FF4500' : '#39FF14' // Bar color
+            date: turnoverItem.date.slice(5), // MM-DD format
+            turnover: turnoverItem.turnover || 0,
+            avg_basket_value: basketItem.avg_basket_value || 0,
+            fill: isToday ? '#FF4500' : '#39FF14'
           };
         });
-        setCombinedChartData(mergedData);
+
+        setCombinedChartData(combinedData);
         setLoadingCombinedChart(false);
       })
       .catch(err => {
-        console.error("Error fetching combined chart data:", err);
         setErrorCombinedChart('Error fetching chart data.');
         setCombinedChartData([]);
         setLoadingCombinedChart(false);
+      });
+
+    // Calculate corresponding day last year and fetch year-over-year comparison data
+    const getCorrespondingDayLastYear = (dateString) => {
+      const currentDate = new Date(dateString);
+      const currentYear = currentDate.getFullYear();
+      const lastYear = currentYear - 1;
+      
+      // Try the exact same date last year first
+      const sameDataLastYear = new Date(lastYear, currentDate.getMonth(), currentDate.getDate());
+      
+      // Get the day of the week for the current date and same date last year
+      const currentDayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const lastYearDayOfWeek = sameDataLastYear.getDay();
+      
+      // Calculate how many days to adjust to get the same day of the week
+      const dayDifference = currentDayOfWeek - lastYearDayOfWeek;
+      
+      // Adjust the date to get the closest day of the week from last year
+      const correspondingDate = new Date(sameDataLastYear);
+      correspondingDate.setDate(sameDataLastYear.getDate() + dayDifference);
+      
+      return correspondingDate.toISOString().slice(0, 10); // YYYY-MM-DD format
+    };
+
+    const correspondingDayLastYear = getCorrespondingDayLastYear(singleDate);
+
+    // Fetch current year and last year data for comparison
+    const fetchCurrentYearData = axios.get(`${API_BASE_URL}/api/turnover_for_range/${singleDate}/${singleDate}`, {
+      headers: { 'X-Pharmacy': selectedPharmacy }
+    });
+
+    const fetchLastYearData = axios.get(`${API_BASE_URL}/api/turnover_for_range/${correspondingDayLastYear}/${correspondingDayLastYear}`, {
+      headers: { 'X-Pharmacy': selectedPharmacy }
+    });
+
+    Promise.all([fetchCurrentYearData, fetchLastYearData])
+      .then(([currentRes, lastYearRes]) => {
+        const currentYearTurnover = currentRes.data?.turnover || 0;
+        const lastYearTurnover = lastYearRes.data?.turnover || 0;
+        
+        const currentDate = new Date(singleDate);
+        const lastYearDate = new Date(correspondingDayLastYear);
+        const currentDayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+        
+        const yoyData = [
+          {
+            category: currentDayName,
+            currentYear: currentYearTurnover,
+            lastYear: lastYearTurnover,
+            currentDate: singleDate,
+            lastYearDate: correspondingDayLastYear
+          }
+        ];
+
+        setYoyComparisonData(yoyData);
+        setLoadingYoyComparison(false);
+      })
+      .catch(err => {
+        setErrorYoyComparison('Error fetching year-over-year comparison data.');
+        setYoyComparisonData([]);
+        setLoadingYoyComparison(false);
       });
 
   }, [selectedPharmacy, selectedDate]);
@@ -448,6 +562,128 @@ function DailyView({ selectedPharmacy, selectedDate }) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Year-over-Year Comparison Chart */}
+      <div style={{
+        width: 'calc(100vw - 5mm)',
+        marginLeft: '2mm',
+        marginRight: '2mm',
+        background: '#232b3b',
+        color: '#fff',
+        borderRadius: '1.2rem',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
+        padding: '1rem',
+        marginBottom: '1rem',
+        height: '280px',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        <div style={{ 
+          fontSize: '1.1rem', 
+          fontWeight: 600, 
+          marginBottom: '0.8rem', 
+          textAlign: 'center', 
+          color: '#fff' 
+        }}>
+          {yoyComparisonData.length > 0 && yoyComparisonData[0].currentDate ? 
+            `Sales Comparison: ${new Date(yoyComparisonData[0].currentDate).toLocaleDateString('en-ZA')} vs ${new Date(yoyComparisonData[0].lastYearDate).toLocaleDateString('en-ZA')}` :
+            'Sales Comparison: Today vs Same Day Last Year'
+          }
+        </div>
+        
+        {loadingYoyComparison ? (
+          <div style={{ 
+            flexGrow: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            color: '#bdbdbd', 
+            fontSize: '0.9rem' 
+          }}>
+            Loading comparison data...
+          </div>
+        ) : errorYoyComparison ? (
+          <div style={{ 
+            flexGrow: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            color: 'red', 
+            fontSize: '0.9rem' 
+          }}>
+            {errorYoyComparison}
+          </div>
+        ) : yoyComparisonData.length > 0 ? (
+          <>
+            <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
+              <ComposedChart data={yoyComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis 
+                  dataKey="category" 
+                  tick={{ fontSize: 12, fill: '#9CA3AF' }} 
+                  axisLine={{ stroke: '#4B5563' }} 
+                  tickLine={{ stroke: '#4B5563' }}
+                />
+                <YAxis 
+                  tick={{ fontSize: 11, fill: '#9CA3AF' }}
+                  tickFormatter={(value) => {
+                    if (value >= 1000000) return `R${(value/1000000).toFixed(1)}M`;
+                    if (value >= 1000) return `R${(value/1000).toFixed(0)}k`;
+                    return `R${value}`;
+                  }}
+                  axisLine={{ stroke: '#4B5563' }}
+                  tickLine={{ stroke: '#4B5563' }}
+                />
+                <Tooltip content={<CustomYoYTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
+                <Legend 
+                  verticalAlign="top" 
+                  height={36} 
+                  wrapperStyle={{
+                    fontSize: "12px", 
+                    color: "#bdbdbd", 
+                    paddingTop: "0px", 
+                    paddingBottom: "10px"
+                  }} 
+                />
+                <Bar 
+                  dataKey="currentYear" 
+                  name="This Year" 
+                  fill="#FF4500" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={60}
+                />
+                <Bar 
+                  dataKey="lastYear" 
+                  name="Last Year" 
+                  fill="#39FF14" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={60}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+            <div style={{ 
+              textAlign: 'center', 
+              color: '#bdbdbd', 
+              fontSize: '0.8rem', 
+              paddingTop: '4px', 
+              flexShrink: 0 
+            }}>
+              Comparing {yoyComparisonData[0]?.category} sales
+            </div>
+          </>
+        ) : (
+          <div style={{ 
+            flexGrow: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            color: '#bdbdbd', 
+            fontSize: '0.9rem' 
+          }}>
+            No comparison data available.
+          </div>
+        )}
       </div>
     </div>
   );
