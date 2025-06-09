@@ -52,13 +52,13 @@ function StockView({ selectedPharmacy, selectedDate }) {
   const [loadingCostStats, setLoadingCostStats] = useState(true);
   const [errorCostStats, setErrorCostStats] = useState(null);
 
-  const [transStats, setTransStats] = useState({ transactions: null, scripts: null });
-  const [loadingTransStats, setLoadingTransStats] = useState(true);
-  const [errorTransStats, setErrorTransStats] = useState(null);
+  const [turnoverRatio, setTurnoverRatio] = useState({ ratio: null });
+  const [loadingTurnoverRatio, setLoadingTurnoverRatio] = useState(true);
+  const [errorTurnoverRatio, setErrorTurnoverRatio] = useState(null);
 
-  const [dispPie, setDispPie] = useState({ percent: null, disp: null, total: null });
-  const [loadingDispPie, setLoadingDispPie] = useState(true);
-  const [errorDispPie, setErrorDispPie] = useState(null);
+  const [daysOfInventory, setDaysOfInventory] = useState({ days: null });
+  const [loadingDaysOfInventory, setLoadingDaysOfInventory] = useState(true);
+  const [errorDaysOfInventory, setErrorDaysOfInventory] = useState(null);
 
   const [inventoryChartData, setInventoryChartData] = useState([]);
   const [loadingInventoryChart, setLoadingInventoryChart] = useState(true);
@@ -73,8 +73,8 @@ function StockView({ selectedPharmacy, selectedDate }) {
       setPurchasesStats(null); setLoadingPurchases(true); setErrorPurchases(null);
       setAdjustmentsStats(null); setLoadingAdjustments(true); setErrorAdjustments(null);
       setCostStats({ cost: null, closingStock: null }); setLoadingCostStats(true); setErrorCostStats(null);
-      setTransStats({ transactions: null, scripts: null }); setLoadingTransStats(true); setErrorTransStats(null);
-      setDispPie({ percent: null, disp: null, total: null }); setLoadingDispPie(true); setErrorDispPie(null);
+      setTurnoverRatio({ ratio: null }); setLoadingTurnoverRatio(true); setErrorTurnoverRatio(null);
+      setDaysOfInventory({ days: null }); setLoadingDaysOfInventory(true); setErrorDaysOfInventory(null);
       setInventoryChartData([]); setLoadingInventoryChart(true); setErrorInventoryChart(null);
       return;
     }
@@ -84,8 +84,8 @@ function StockView({ selectedPharmacy, selectedDate }) {
     setLoadingPurchases(true); setErrorPurchases(null); setPurchasesStats(null);
     setLoadingAdjustments(true); setErrorAdjustments(null); setAdjustmentsStats(null);
     setLoadingCostStats(true); setErrorCostStats(null); setCostStats({ cost: null, closingStock: null });
-    setLoadingTransStats(true); setErrorTransStats(null); setTransStats({ transactions: null, scripts: null });
-    setLoadingDispPie(true); setErrorDispPie(null); setDispPie({ percent: null, disp: null, total: null });
+    setLoadingTurnoverRatio(true); setErrorTurnoverRatio(null); setTurnoverRatio({ ratio: null });
+    setLoadingDaysOfInventory(true); setErrorDaysOfInventory(null); setDaysOfInventory({ days: null });
     setLoadingInventoryChart(true); setErrorInventoryChart(null); setInventoryChartData([]);
 
     // Calculate first day of the month from selected date
@@ -158,35 +158,32 @@ function StockView({ selectedPharmacy, selectedDate }) {
         setLoadingCostStats(false);
       });
 
-    // Fetch total transactions and scripts for the month
-    axios.get(`${API_BASE_URL}/api/transactions_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+    // Fetch turnover ratio for the month
+    axios.get(`${API_BASE_URL}/api/turnover_ratio_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
-        setTransStats({ transactions: res.data?.total_transactions ?? 0, scripts: res.data?.total_scripts ?? 0 });
-        setLoadingTransStats(false);
+        setTurnoverRatio({ ratio: res.data?.turnover_ratio ?? 0 });
+        setLoadingTurnoverRatio(false);
       })
       .catch(err => {
-        setErrorTransStats('Error fetching transaction stats.');
-        setTransStats({ transactions: 0, scripts: 0 });
-        setLoadingTransStats(false);
+        setErrorTurnoverRatio('Error fetching turnover ratio.');
+        setTurnoverRatio({ ratio: 0 });
+        setLoadingTurnoverRatio(false);
       });
 
-    // Fetch dispensary percentage for the month
-    axios.get(`${API_BASE_URL}/api/dispensary_vs_total_turnover/${firstDayOfMonthStr}/${currentDateStr}`, {
+    // Fetch days of inventory for the month
+    axios.get(`${API_BASE_URL}/api/days_of_inventory_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
-        const dispensary = res.data?.dispensary_turnover ?? 0;
-        const total = res.data?.total_turnover ?? 0;
-        const percent = total > 0 ? (dispensary / total) * 100 : 0;
-        setDispPie({ percent, disp: dispensary, total });
-        setLoadingDispPie(false);
+        setDaysOfInventory({ days: res.data?.days_of_inventory ?? 0 });
+        setLoadingDaysOfInventory(false);
       })
       .catch(err => {
-        setErrorDispPie('Error fetching dispensary metrics.');
-        setDispPie({ percent: 0, disp: 0, total: 0 });
-        setLoadingDispPie(false);
+        setErrorDaysOfInventory('Error fetching days of inventory.');
+        setDaysOfInventory({ days: 0 });
+        setLoadingDaysOfInventory(false);
       });
 
     // Calculate the date range for 12-month inventory chart
@@ -358,41 +355,26 @@ function StockView({ selectedPharmacy, selectedDate }) {
         </div>
       </div>
 
-      {/* Row 2 of KPI Cards */}
+      {/* Row 2 of KPI Cards - New Gauge Cards */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'row', gap: '1.5mm', alignItems: 'stretch', justifyContent: 'center', marginBottom: '1rem', padding: 0, boxSizing: 'border-box' }}>
-        {/* Left card: Transaction Qty and Script Qty */}
+        {/* Left card: Turnover Ratio Gauge */}
         <div style={{
           width: 'calc(50vw - 2.5mm)', background: '#232b3b', borderRadius: '1.2rem', boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
           minHeight: '60px', marginLeft: '1.5mm', marginRight: 0, display: 'flex', flexDirection: 'column',
-          justifyContent: 'center', alignItems: 'flex-start', padding: '0.5rem 1.2rem',
-        }}>
-          <div style={cardLabelStyle}>Transaction Qty</div>
-          <div style={{...cardValueStyle, marginBottom: 10 }}>
-            {loadingTransStats ? '...' : errorTransStats ? <span style={errorStyle}>Err</span> : transStats.transactions !== null ? transStats.transactions.toLocaleString('en-ZA') : 'N/A'}
-          </div>
-          <div style={cardLabelStyle}>Script Qty</div>
-          <div style={cardValueStyle}>
-            {loadingTransStats ? '...' : errorTransStats ? <span style={errorStyle}>Err</span> : transStats.scripts !== null ? transStats.scripts.toLocaleString('en-ZA') : 'N/A'}
-          </div>
-        </div>
-        {/* Right card: Dispensary % Pie Chart */}
-        <div style={{
-          width: 'calc(50vw - 2.5mm)', background: '#232b3b', borderRadius: '1.2rem', boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
-          minHeight: '60px', marginLeft: 0, marginRight: '1.5mm', display: 'flex', flexDirection: 'column',
           justifyContent: 'center', alignItems: 'center', padding: '0.5rem 1.2rem',
         }}>
-          <div style={{ ...cardLabelStyle, alignSelf: 'center' }}>Dispensary %</div>
-          {loadingDispPie ? (
+          <div style={{ ...cardLabelStyle, alignSelf: 'center' }}>Turnover Ratio</div>
+          {loadingTurnoverRatio ? (
             <div style={{ color: '#bdbdbd', fontSize: '1.1rem', marginTop: 18 }}>...</div>
-          ) : errorDispPie ? (
+          ) : errorTurnoverRatio ? (
             <div style={errorStyle}>Err</div>
           ) : (
             <div style={{ width: 140, height: 95, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start' }}>
               <PieChart width={160} height={90} style={{ marginTop: 0 }}>
                 <Pie
                   data={[
-                    { name: 'Dispensary', value: dispPie.disp },
-                    { name: 'Other', value: Math.max(dispPie.total - dispPie.disp, 0) },
+                    { name: 'Ratio', value: Math.min(turnoverRatio.ratio * 20, 100) }, // Scale for visual representation
+                    { name: 'Remaining', value: Math.max(100 - (turnoverRatio.ratio * 20), 0) },
                   ]}
                   cx={80}
                   cy={74}
@@ -404,8 +386,8 @@ function StockView({ selectedPharmacy, selectedDate }) {
                   stroke="none"
                   cornerRadius={4}
                 >
-                  <Cell key="disp" fill="#FFB800" />
-                  <Cell key="other" fill="#374151" />
+                  <Cell key="ratio" fill="#8A2BE2" />
+                  <Cell key="remaining" fill="#374151" />
                 </Pie>
               </PieChart>
               <div style={{
@@ -413,7 +395,50 @@ function StockView({ selectedPharmacy, selectedDate }) {
                 fontSize: '2.1rem', fontWeight: 700, color: '#fff',
                 letterSpacing: '-1px', pointerEvents: 'none',
               }}>
-                {dispPie.percent !== null ? Math.round(dispPie.percent) : ''}
+                {turnoverRatio.ratio !== null ? turnoverRatio.ratio.toFixed(1) : ''}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Right card: Days of Inventory Gauge */}
+        <div style={{
+          width: 'calc(50vw - 2.5mm)', background: '#232b3b', borderRadius: '1.2rem', boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
+          minHeight: '60px', marginLeft: 0, marginRight: '1.5mm', display: 'flex', flexDirection: 'column',
+          justifyContent: 'center', alignItems: 'center', padding: '0.5rem 1.2rem',
+        }}>
+          <div style={{ ...cardLabelStyle, alignSelf: 'center' }}>Days of Inventory</div>
+          {loadingDaysOfInventory ? (
+            <div style={{ color: '#bdbdbd', fontSize: '1.1rem', marginTop: 18 }}>...</div>
+          ) : errorDaysOfInventory ? (
+            <div style={errorStyle}>Err</div>
+          ) : (
+            <div style={{ width: 140, height: 95, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start' }}>
+              <PieChart width={160} height={90} style={{ marginTop: 0 }}>
+                <Pie
+                  data={[
+                    { name: 'Days', value: Math.min(daysOfInventory.days, 365) }, // Cap at 365 days for visual
+                    { name: 'Remaining', value: Math.max(365 - daysOfInventory.days, 0) },
+                  ]}
+                  cx={80}
+                  cy={74}
+                  innerRadius={48}
+                  outerRadius={70}
+                  startAngle={180}
+                  endAngle={0}
+                  dataKey="value"
+                  stroke="none"
+                  cornerRadius={4}
+                >
+                  <Cell key="days" fill="#00CED1" />
+                  <Cell key="remaining" fill="#374151" />
+                </Pie>
+              </PieChart>
+              <div style={{
+                position: 'absolute', left: 8, right: 0, top: 38, textAlign: 'center',
+                fontSize: '2.1rem', fontWeight: 700, color: '#fff',
+                letterSpacing: '-1px', pointerEvents: 'none',
+              }}>
+                {daysOfInventory.days !== null ? Math.round(daysOfInventory.days) : ''}
               </div>
             </div>
           )}

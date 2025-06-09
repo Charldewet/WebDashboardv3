@@ -627,6 +627,119 @@ def get_monthly_closing_stock_for_range(start_date, end_date):
             'error': f'Error fetching monthly closing stock: {str(e)}'
         }), 500
 
+@api_bp.route('/turnover_ratio_for_range/<start_date>/<end_date>', methods=['GET'])
+def get_turnover_ratio_for_range(start_date, end_date):
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    session = create_session()
+    
+    try:
+        # Get cost of sales for the period
+        query = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy,
+            DailyReport.report_date >= start_date,
+            DailyReport.report_date <= end_date
+        )
+        reports = query.all()
+        
+        total_cost_of_sales = sum(r.cost_of_sales_today for r in reports if r.cost_of_sales_today)
+        
+        # Get opening and closing stock for average inventory calculation
+        # Opening stock from first day of period
+        opening_query = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy,
+            DailyReport.report_date >= start_date,
+            DailyReport.opening_stock_today.isnot(None),
+            DailyReport.opening_stock_today > 0
+        ).order_by(DailyReport.report_date.asc()).first()
+        
+        # Closing stock from last day of period  
+        closing_query = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy,
+            DailyReport.report_date <= end_date,
+            DailyReport.closing_stock_today.isnot(None),
+            DailyReport.closing_stock_today > 0
+        ).order_by(DailyReport.report_date.desc()).first()
+        
+        opening_stock = opening_query.opening_stock_today if opening_query else 0
+        closing_stock = closing_query.closing_stock_today if closing_query else 0
+        
+        # Calculate average inventory
+        average_inventory = (opening_stock + closing_stock) / 2 if (opening_stock + closing_stock) > 0 else 1
+        
+        # Calculate inventory turnover ratio (times per period)
+        turnover_ratio = total_cost_of_sales / average_inventory if average_inventory > 0 else 0
+        
+        session.close()
+        return jsonify({
+            'pharmacy': pharmacy,
+            'turnover_ratio': round(turnover_ratio, 2),
+            'cost_of_sales': round(total_cost_of_sales, 2),
+            'average_inventory': round(average_inventory, 2)
+        })
+        
+    except Exception as e:
+        session.close()
+        return jsonify({
+            'pharmacy': pharmacy,
+            'turnover_ratio': 0,
+            'error': f'Error calculating turnover ratio: {str(e)}'
+        }), 500
+
+@api_bp.route('/days_of_inventory_for_range/<start_date>/<end_date>', methods=['GET'])
+def get_days_of_inventory_for_range(start_date, end_date):
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    session = create_session()
+    
+    from datetime import datetime
+    
+    try:
+        # Get cost of sales for the period to calculate daily average
+        query = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy,
+            DailyReport.report_date >= start_date,
+            DailyReport.report_date <= end_date
+        )
+        reports = query.all()
+        
+        total_cost_of_sales = sum(r.cost_of_sales_today for r in reports if r.cost_of_sales_today)
+        
+        # Calculate number of days in the period
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+        days_in_period = (end_date_obj - start_date_obj).days + 1
+        
+        # Calculate average daily cost of sales
+        avg_daily_cost_of_sales = total_cost_of_sales / days_in_period if days_in_period > 0 else 0
+        
+        # Get current closing stock
+        closing_query = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy,
+            DailyReport.report_date <= end_date,
+            DailyReport.closing_stock_today.isnot(None),
+            DailyReport.closing_stock_today > 0
+        ).order_by(DailyReport.report_date.desc()).first()
+        
+        current_inventory = closing_query.closing_stock_today if closing_query else 0
+        
+        # Calculate days of inventory
+        days_of_inventory = current_inventory / avg_daily_cost_of_sales if avg_daily_cost_of_sales > 0 else 0
+        
+        session.close()
+        return jsonify({
+            'pharmacy': pharmacy,
+            'days_of_inventory': round(days_of_inventory, 1),
+            'current_inventory': round(current_inventory, 2),
+            'avg_daily_cost_of_sales': round(avg_daily_cost_of_sales, 2)
+        })
+        
+    except Exception as e:
+        session.close()
+        return jsonify({
+            'pharmacy': pharmacy,
+            'days_of_inventory': 0,
+            'error': f'Error calculating days of inventory: {str(e)}'
+        }), 500
+
 @api_bp.route('/status', methods=['GET'])
 @memory_cleanup  
 def app_status():
