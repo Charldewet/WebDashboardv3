@@ -693,7 +693,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
               return null;
             })()}
             
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
               <BarChart 
                 data={yoyComparisonData.map(item => ({
                   category: item.category || 'Day',
@@ -702,15 +702,16 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   currentDate: item.currentDate,
                   lastYearDate: item.lastYearDate
                 }))} 
-                layout="horizontal"
-                margin={{ top: 40, right: 50, left: 100, bottom: 40 }}
-                barCategoryGap="20%"
-                barGap={4}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 
-                  type="number"
-                  domain={[0, (dataMax) => Math.max(dataMax * 1.1, 1000)]}
+                  dataKey="category" 
+                  tick={{ fontSize: 12, fill: '#9CA3AF' }} 
+                  axisLine={{ stroke: '#4B5563' }} 
+                  tickLine={{ stroke: '#4B5563' }}
+                />
+                <YAxis 
                   tick={{ fontSize: 11, fill: '#9CA3AF' }}
                   tickFormatter={(value) => {
                     if (value === null || value === undefined || isNaN(value) || !isFinite(value)) {
@@ -722,14 +723,6 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   }}
                   axisLine={{ stroke: '#4B5563' }}
                   tickLine={{ stroke: '#4B5563' }}
-                />
-                <YAxis 
-                  type="category"
-                  dataKey="category"
-                  tick={{ fontSize: 12, fill: '#9CA3AF' }} 
-                  axisLine={{ stroke: '#4B5563' }} 
-                  tickLine={{ stroke: '#4B5563' }}
-                  width={120}
                 />
                 <Tooltip content={<CustomYoYTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
                 <Legend 
@@ -746,19 +739,15 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   dataKey="currentYear" 
                   name="This Year" 
                   fill="#FF4500"
-                  stroke="#FF4500"
-                  strokeWidth={1}
-                  barSize={40}
-                  maxBarSize={40}
+                  radius={[4, 4, 0, 0]} 
+                  barSize={60}
                 />
                 <Bar 
                   dataKey="lastYear" 
                   name="Last Year" 
                   fill="#39FF14"
-                  stroke="#39FF14"
-                  strokeWidth={1}
-                  barSize={40}
-                  maxBarSize={40}
+                  radius={[4, 4, 0, 0]} 
+                  barSize={60}
                 />
               </BarChart>
             </ResponsiveContainer>
