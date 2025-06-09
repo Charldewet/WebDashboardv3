@@ -1,100 +1,58 @@
-from flask import jsonify, request, Blueprint, Flask, session
-from app.models import DailyReport, User
-from app.db import create_session
+from flask import jsonify, request, Blueprint, Flask
+from app.models import DailyReport
+from app.db import create_session, cleanup_db_sessions
 import subprocess
 import threading
 import time
 import os
 import psutil
 from flask_cors import CORS
-from flask_session import Session
-from datetime import datetime, timedelta
+import datetime
+import gc
 from functools import wraps
+
+# Memory optimization at startup
+def optimize_memory():
+    """Optimize memory usage at startup and during operation."""
+    try:
+        # Force garbage collection
+        gc.collect()
+        
+        # Clean up any database sessions
+        cleanup_db_sessions()
+        
+        # Get current memory usage
+        memory_usage = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
+        print(f"[Memory] Optimized to {memory_usage:.2f} MB", flush=True)
+        
+        return memory_usage
+    except Exception as e:
+        print(f"[Memory] Error during optimization: {e}", flush=True)
+        return None
+
+def memory_cleanup(f):
+    """Decorator to automatically clean up memory after API calls."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            result = f(*args, **kwargs)
+            return result
+        finally:
+            # Clean up after every API call
+            try:
+                gc.collect()
+                cleanup_db_sessions()
+            except Exception as e:
+                print(f"[Memory] Cleanup error in {f.__name__}: {e}", flush=True)
+    return decorated_function
+
+# Optimize memory at startup
+startup_memory = optimize_memory()
+print(f"[Startup] Application started with {startup_memory:.2f} MB memory usage", flush=True)
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-def login_required(f):
-    """Decorator to require login for protected routes"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            return jsonify({'error': 'Authentication required'}), 401
-        
-        # Check if session has expired (24 hours)
-        if 'login_time' in session:
-            login_time = datetime.fromisoformat(session['login_time'])
-            if datetime.now() - login_time > timedelta(hours=24):
-                session.clear()
-                return jsonify({'error': 'Session expired'}), 401
-        
-        return f(*args, **kwargs)
-    return decorated_function
-
-@api_bp.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    
-    if not username or not password:
-        return jsonify({'error': 'Username and password required'}), 400
-    
-    db_session = create_session()
-    user = db_session.query(User).filter(User.username == username).first()
-    
-    if user and user.check_password(password):
-        session['user_id'] = user.id
-        session['username'] = user.username
-        session['login_time'] = datetime.now().isoformat()
-        session.permanent = True
-        db_session.close()
-        return jsonify({'message': 'Login successful', 'username': user.username}), 200
-    
-    db_session.close()
-    return jsonify({'error': 'Invalid username or password'}), 401
-
-@api_bp.route('/logout', methods=['POST'])
-def logout():
-    session.clear()
-    return jsonify({'message': 'Logout successful'}), 200
-
-@api_bp.route('/check_session', methods=['GET'])
-def check_session():
-    if 'user_id' not in session:
-        return jsonify({'authenticated': False}), 200
-    
-    # Check if session has expired (24 hours)
-    if 'login_time' in session:
-        login_time = datetime.fromisoformat(session['login_time'])
-        if datetime.now() - login_time > timedelta(hours=24):
-            session.clear()
-            return jsonify({'authenticated': False, 'reason': 'Session expired'}), 200
-    
-    return jsonify({
-        'authenticated': True, 
-        'username': session.get('username'),
-        'login_time': session.get('login_time')
-    }), 200
-
-def init_default_user():
-    """Initialize the default user 'Charl' with password 'Admin1'"""
-    db_session = create_session()
-    
-    # Check if user already exists
-    existing_user = db_session.query(User).filter(User.username == 'Charl').first()
-    if not existing_user:
-        user = User(username='Charl')
-        user.set_password('Admin1')
-        db_session.add(user)
-        db_session.commit()
-        print("Default user 'Charl' created successfully")
-    else:
-        print("Default user 'Charl' already exists")
-    
-    db_session.close()
-
 @api_bp.route('/turnover', methods=['GET'])
-@login_required
 def get_turnover():
     pharmacy = request.args.get('pharmacy')
     date = request.args.get('date')  # Optionally filter by date
@@ -108,7 +66,6 @@ def get_turnover():
     return jsonify({'pharmacy': pharmacy, 'turnover': turnover})
 
 @api_bp.route('/turnover_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -123,7 +80,6 @@ def get_turnover_for_range(start_date, end_date):
     return jsonify({'pharmacy': pharmacy, 'turnover': turnover})
 
 @api_bp.route('/daily_turnover_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -141,7 +97,6 @@ def get_daily_turnover_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_turnover": daily_turnover})
 
 @api_bp.route('/daily_avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -162,7 +117,6 @@ def get_daily_avg_basket_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_avg_basket": daily_avg_basket})
 
 @api_bp.route('/avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -188,7 +142,6 @@ def get_avg_basket_for_range(start_date, end_date):
     })
 
 @api_bp.route('/gp_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_gp_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -213,7 +166,6 @@ def get_gp_for_range(start_date, end_date):
     })
 
 @api_bp.route('/costs_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_costs_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -233,7 +185,6 @@ def get_costs_for_range(start_date, end_date):
     })
 
 @api_bp.route('/transactions_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_transactions_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -253,7 +204,6 @@ def get_transactions_for_range(start_date, end_date):
     })
 
 @api_bp.route('/dispensary_vs_total_turnover/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_dispensary_vs_total_turnover(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -275,7 +225,6 @@ def get_dispensary_vs_total_turnover(start_date, end_date):
     })
 
 @api_bp.route('/daily_purchases_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_purchases_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -293,7 +242,6 @@ def get_daily_purchases_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_purchases": daily_purchases})
 
 @api_bp.route('/daily_cost_of_sales_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_cost_of_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -311,7 +259,6 @@ def get_daily_cost_of_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_cost_of_sales": daily_cost_of_sales})
 
 @api_bp.route('/daily_cash_sales_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_cash_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -329,7 +276,6 @@ def get_daily_cash_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_cash_sales": daily_cash_sales})
 
 @api_bp.route('/daily_account_sales_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_account_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -347,7 +293,6 @@ def get_daily_account_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_account_sales": daily_account_sales})
 
 @api_bp.route('/daily_cod_sales_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_cod_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -365,7 +310,6 @@ def get_daily_cod_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_cod_sales": daily_cod_sales})
 
 @api_bp.route('/daily_cash_tenders_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_cash_tenders_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -383,7 +327,6 @@ def get_daily_cash_tenders_for_range(start_date, end_date):
     return jsonify({"daily_cash_tenders": daily_cash_tenders, "pharmacy": pharmacy})
 
 @api_bp.route('/daily_credit_card_tenders_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_credit_card_tenders_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -401,7 +344,6 @@ def get_daily_credit_card_tenders_for_range(start_date, end_date):
     return jsonify({"daily_credit_card_tenders": daily_credit_card_tenders, "pharmacy": pharmacy})
 
 @api_bp.route('/daily_scripts_dispensed_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_scripts_dispensed_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -419,7 +361,6 @@ def get_daily_scripts_dispensed_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_scripts_dispensed": daily_scripts})
 
 @api_bp.route('/daily_gp_percent_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_gp_percent_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -437,7 +378,6 @@ def get_daily_gp_percent_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_gp_percent": daily_gp_percent})
 
 @api_bp.route('/daily_dispensary_percent_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_dispensary_percent_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -461,7 +401,6 @@ def get_daily_dispensary_percent_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_dispensary_percent": daily_dispensary_percent})
 
 @api_bp.route('/daily_dispensary_turnover_for_range/<start_date>/<end_date>', methods=['GET'])
-@login_required
 def get_daily_dispensary_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -478,52 +417,185 @@ def get_daily_dispensary_turnover_for_range(start_date, end_date):
     session.close()
     return jsonify({"pharmacy": pharmacy, "daily_dispensary_turnover": daily_dispensary_turnover})
 
+@api_bp.route('/health', methods=['GET'])
+@memory_cleanup
+def health_check():
+    """Health check endpoint to monitor application status."""
+    try:
+        # Check database connectivity
+        session = create_session()
+        session.execute("SELECT 1")
+        session.close()
+        
+        # Check memory usage with more detail
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        memory_usage = memory_info.rss / 1024 ** 2
+        memory_percent = process.memory_percent()
+        
+        # Get system memory info if available
+        try:
+            system_memory = psutil.virtual_memory()
+            system_total = system_memory.total / 1024 ** 2
+            system_available = system_memory.available / 1024 ** 2
+        except:
+            system_total = None
+            system_available = None
+        
+        return jsonify({
+            "status": "healthy",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "memory": {
+                "usage_mb": round(memory_usage, 2),
+                "usage_percent": round(memory_percent, 2),
+                "system_total_mb": round(system_total, 2) if system_total else None,
+                "system_available_mb": round(system_available, 2) if system_available else None
+            },
+            "database": "connected",
+            "memory_threshold": "200MB (Render optimized)"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "error": str(e)
+        }), 500
+
 @api_bp.route('/force_update', methods=['POST'])
-@login_required
 def force_update():
     print("=== /api/force_update called ===", flush=True)
+    
+    # Check memory before starting
     try:
+        initial_memory = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
+        print(f"[Force Update] Memory before start: {initial_memory:.2f} MB", flush=True)
+        
+        if initial_memory > 150:  # Don't start if already high
+            return jsonify({
+                "status": "error", 
+                "message": f"Memory usage too high ({initial_memory:.2f} MB) to start update safely"
+            }), 503
+    except Exception as e:
+        print(f"Error checking memory: {e}", flush=True)
+    
+    try:
+        print("Starting manual email fetch...", flush=True)
         result = subprocess.run(
             ['python3', 'scripts/fetch_latest.py'],
             capture_output=True,
             text=True,
-            timeout=600  # 10 minutes max
+            timeout=600  # Reduced back to 10 minutes for safety
         )
         print("=== subprocess finished ===", flush=True)
-        print("stdout:", result.stdout, flush=True)
-        print("stderr:", result.stderr, flush=True)
+        
+        # Always log the output for debugging
+        if result.stdout:
+            print("stdout:", result.stdout, flush=True)
+        if result.stderr:
+            print("stderr:", result.stderr, flush=True)
+        
+        # Force garbage collection after subprocess
+        import gc
+        gc.collect()
+        
+        # Check final memory usage
+        try:
+            final_memory = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
+            print(f"[Force Update] Memory after completion: {final_memory:.2f} MB", flush=True)
+        except Exception:
+            pass
+            
         if result.returncode == 0:
-            return jsonify({"status": "success", "output": result.stdout}), 200
+            return jsonify({
+                "status": "success", 
+                "message": "Email fetch completed successfully",
+                "output": result.stdout
+            }), 200
         else:
-            if not result.stderr:
-                return jsonify({"status": "error", "output": "Unknown error: no stderr output"}), 500
-            return jsonify({"status": "error", "output": result.stderr}), 500
+            error_msg = result.stderr if result.stderr else "Unknown error: no stderr output"
+            return jsonify({
+                "status": "error", 
+                "message": "Email fetch failed",
+                "error": error_msg,
+                "return_code": result.returncode
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        print("Force update timeout after 10 minutes", flush=True)
+        return jsonify({
+            "status": "error", 
+            "message": "Email fetch timed out after 10 minutes"
+        }), 500
+    except FileNotFoundError:
+        print("fetch_latest.py script not found", flush=True)
+        return jsonify({
+            "status": "error", 
+            "message": "Fetch script not found"
+        }), 500
     except Exception as e:
         print("Exception in force_update:", str(e), flush=True)
-        return jsonify({"status": "error", "output": str(e)}), 500
+        return jsonify({
+            "status": "error", 
+            "message": "Unexpected error during email fetch",
+            "error": str(e)
+        }), 500
 
 def periodic_fetch():
     while True:
         print("=== [Periodic Fetch] Loop Start ===", flush=True)
-        mem_usage = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
-        print(f"[Periodic Fetch] Memory usage before: {mem_usage:.2f} MB", flush=True)
-        if mem_usage > 400:
-            print(f"[Periodic Fetch] Memory usage exceeded 400MB, exiting process to allow restart.", flush=True)
-            os._exit(1)
         try:
-            result = subprocess.run(
-                ['python3', 'scripts/fetch_latest.py'],
-                capture_output=True,
-                text=True,
-                timeout=600
-            )
-            print(result.stdout, flush=True)
-            if result.stderr:
-                print(result.stderr, flush=True)
+            mem_usage = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
+            print(f"[Periodic Fetch] Memory usage before: {mem_usage:.2f} MB", flush=True)
+            
+            # Much more aggressive memory threshold for Render
+            if mem_usage > 200:  # Reduced from 350MB to 200MB for Render
+                print(f"[Periodic Fetch] Memory usage exceeded 200MB, exiting process to allow restart.", flush=True)
+                os._exit(1)
+            
+            try:
+                print("[Periodic Fetch] Starting email fetch process...", flush=True)
+                result = subprocess.run(
+                    ['python3', 'scripts/fetch_latest.py'],
+                    capture_output=True,
+                    text=True,
+                    timeout=600  # Reduced back to 10 minutes to be safer
+                )
+                
+                if result.stdout:
+                    print(f"[Periodic Fetch] Script output: {result.stdout}", flush=True)
+                if result.stderr:
+                    print(f"[Periodic Fetch] Script errors: {result.stderr}", flush=True)
+                    
+                if result.returncode != 0:
+                    print(f"[Periodic Fetch] Script failed with return code: {result.returncode}", flush=True)
+                else:
+                    print("[Periodic Fetch] Email fetch completed successfully", flush=True)
+                    
+            except subprocess.TimeoutExpired:
+                print("[Periodic Fetch] Script timeout after 10 minutes, continuing...", flush=True)
+            except FileNotFoundError:
+                print("[Periodic Fetch] Error: fetch_latest.py not found", flush=True)
+            except Exception as e:
+                print(f"[Periodic Fetch] Error running subprocess: {e}", flush=True)
+                
         except Exception as e:
-            print(f"[Periodic Fetch] Error: {e}", flush=True)
-        mem_usage_after = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
-        print(f"[Periodic Fetch] Memory usage after: {mem_usage_after:.2f} MB", flush=True)
+            print(f"[Periodic Fetch] Unexpected error in periodic fetch loop: {e}", flush=True)
+        
+        # Force garbage collection after each cycle
+        import gc
+        gc.collect()
+        
+        try:
+            mem_usage_after = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
+            print(f"[Periodic Fetch] Memory usage after: {mem_usage_after:.2f} MB", flush=True)
+            
+            # Additional safety check after processing
+            if mem_usage_after > 250:  # Even after cleanup, if still high, restart
+                print(f"[Periodic Fetch] Memory still high after cleanup ({mem_usage_after:.2f} MB), restarting...", flush=True)
+                os._exit(1)
+        except Exception as e:
+            print(f"[Periodic Fetch] Error checking memory after fetch: {e}", flush=True)
+            
         print("=== [Periodic Fetch] Loop End, sleeping 600s ===", flush=True)
         time.sleep(600)
 
@@ -540,32 +612,8 @@ def start_periodic_fetch_once():
 start_periodic_fetch_once()
 
 app = Flask(__name__)
-# Session configuration
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'pharmacy-dashboard-secret-key-change-in-production')
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_PERMANENT'] = False
-app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_KEY_PREFIX'] = 'pharmacy_session:'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
-app.config['SESSION_FILE_DIR'] = os.environ.get('SESSION_DIR', '/tmp/flask_session')
-
-# Ensure session directory exists
-session_dir = app.config['SESSION_FILE_DIR']
-if not os.path.exists(session_dir):
-    os.makedirs(session_dir, exist_ok=True)
-
-# Initialize session
-Session(app)
-
-CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "https://webdashfront.onrender.com"]}}, supports_credentials=True, allow_headers=["Content-Type", "Authorization"], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}})
 app.register_blueprint(api_bp)
 
-# Create database tables and initialize default user
-with app.app_context():
-    from app.db import engine
-    from app.models import Base
-    Base.metadata.create_all(engine)
-    init_default_user()
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001) 
+    app.run(host="0.0.0.0", port=5000) 

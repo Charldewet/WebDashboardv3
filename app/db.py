@@ -1,20 +1,50 @@
 import os
 os.makedirs('db', exist_ok=True)
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.pool import StaticPool
 from app.models import Base
 from config.settings import DATABASE_URI # Import DATABASE_URI
 
-# Initialize engine directly
-engine = create_engine(DATABASE_URI)
-Base.metadata.create_all(engine) # Create tables if they don't exist
+# Create engine with better memory management
+if DATABASE_URI.startswith('sqlite'):
+    # For SQLite, use more conservative settings
+    engine = create_engine(
+        DATABASE_URI, 
+        echo=False,
+        poolclass=StaticPool,
+        pool_pre_ping=True,
+        connect_args={
+            'check_same_thread': False,
+            'timeout': 20
+        }
+    )
+else:
+    # For PostgreSQL and other databases
+    engine = create_engine(
+        DATABASE_URI,
+        echo=False,
+        pool_pre_ping=True,
+        pool_recycle=300,  # Recycle connections every 5 minutes
+        pool_timeout=20,
+        max_overflow=0,  # Don't allow overflow connections
+        pool_size=2      # Keep pool small for memory efficiency
+    )
 
-# Global session factory
-_SessionFactory = sessionmaker(bind=engine)
+# Use scoped session for thread safety and better cleanup
+SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
 
 def create_session():
-    """Creates and returns a new SQLAlchemy session."""
-    return _SessionFactory()
+    """Create a new database session with automatic cleanup."""
+    return SessionLocal()
+
+def cleanup_db_sessions():
+    """Clean up database sessions to free memory."""
+    try:
+        SessionLocal.remove()
+        print("[DB] Database sessions cleaned up", flush=True)
+    except Exception as e:
+        print(f"[DB] Error cleaning up sessions: {e}", flush=True)
 
 # Add this function for compatibility with scripts
 

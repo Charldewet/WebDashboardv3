@@ -3,20 +3,42 @@ import email
 from email.header import decode_header
 import os
 import datetime
+import tempfile
+import socket
 from config.settings import GMAIL_USER, GMAIL_PASSWORD, IMAP_SERVER
 
-TEMP_DIR = "/tmp/daily_html/"
+# Use a more reliable temp directory that works on all platforms
+TEMP_DIR = os.path.join(tempfile.gettempdir(), "daily_html")
 
 if not os.path.exists(TEMP_DIR):
-    os.makedirs(TEMP_DIR)
+    try:
+        os.makedirs(TEMP_DIR, exist_ok=True)
+    except OSError as e:
+        print(f"Warning: Could not create temp directory {TEMP_DIR}: {e}")
+        # Fallback to system temp directory
+        TEMP_DIR = tempfile.gettempdir()
 
 def _get_imap_connection(pharmacy_config):
+    """Get IMAP connection with proper timeout and error handling."""
     user = pharmacy_config.get("email_user", GMAIL_USER)
     password = pharmacy_config.get("email_password", GMAIL_PASSWORD)
     server = pharmacy_config.get("imap_server", IMAP_SERVER)
-    mail = imaplib.IMAP4_SSL(server)
-    mail.login(user, password)
-    return mail
+    
+    if not user or not password:
+        raise ValueError(f"Missing email credentials for pharmacy {pharmacy_config.get('code', 'unknown')}")
+    
+    try:
+        # Set socket timeout to prevent hanging connections
+        socket.setdefaulttimeout(30)
+        mail = imaplib.IMAP4_SSL(server)
+        mail.login(user, password)
+        return mail
+    except imaplib.IMAP4.error as e:
+        raise Exception(f"IMAP authentication failed for {user}: {e}")
+    except socket.timeout:
+        raise Exception(f"IMAP connection timed out for server {server}")
+    except Exception as e:
+        raise Exception(f"Failed to connect to IMAP server {server}: {e}")
 
 def _save_report_content(msg, pharmacy_code, email_date_from_header):
     """Saves HTML part or .htm attachment to a temporary file. Returns filepath or None."""
@@ -71,6 +93,9 @@ def fetch_emails_last_n_days(pharmacy_config, days=7):
     """Fetches emails from the last N days and yields (filepath, report_date_obj)."""
     mail = None
     try:
+        pharmacy_name = pharmacy_config.get('name', pharmacy_config.get('code', 'unknown'))
+        print(f"Connecting to email for {pharmacy_name}...")
+        
         mail = _get_imap_connection(pharmacy_config)
         mail.select("inbox")
         
@@ -79,36 +104,54 @@ def fetch_emails_last_n_days(pharmacy_config, days=7):
         search_criteria_date_str = date_since.strftime("%d-%b-%Y")
         search_criteria = '(SINCE "' + search_criteria_date_str + '")'
         
+        print(f"Searching for emails since {search_criteria_date_str} for {pharmacy_name}...")
         status, messages = mail.search(None, search_criteria)
-        if status != "OK" or not messages[0]:
-            print(f"No emails found since {search_criteria_date_str} for {pharmacy_config.get('name', pharmacy_config['code'])} using criteria: {search_criteria}")
+        if status != "OK":
+            print(f"IMAP search failed for {pharmacy_name}: {status}")
+            return
+            
+        if not messages[0]:
+            print(f"No emails found since {search_criteria_date_str} for {pharmacy_name}")
             return
 
         email_ids = messages[0].split()
-        print(f"Found {len(email_ids)} email(s) since {search_criteria_date_str} for {pharmacy_config.get('name', pharmacy_config['code'])}.")
+        print(f"Found {len(email_ids)} email(s) since {search_criteria_date_str} for {pharmacy_name}")
         
-        for email_id in reversed(email_ids): # Process newest first within the date range
-            status, msg_data = mail.fetch(email_id, "(RFC822)")
-            if status == "OK":
+        for i, email_id in enumerate(reversed(email_ids)): # Process newest first within the date range
+            try:
+                print(f"Processing email {i+1}/{len(email_ids)} for {pharmacy_name}...")
+                status, msg_data = mail.fetch(email_id, "(RFC822)")
+                if status != "OK":
+                    print(f"Failed to fetch email {email_id} for {pharmacy_name}: {status}")
+                    continue
+                    
                 for response_part in msg_data:
                     if isinstance(response_part, tuple):
-                        msg = email.message_from_bytes(response_part[1])
-                        email_date_str_header = msg["Date"]
-                        report_date_obj = None
                         try:
-                            email_dt_header = email.utils.parsedate_to_datetime(email_date_str_header)
-                            report_date_obj = email_dt_header.date() # This is the date from email header
+                            msg = email.message_from_bytes(response_part[1])
+                            email_date_str_header = msg["Date"]
+                            report_date_obj = None
+                            
+                            try:
+                                email_dt_header = email.utils.parsedate_to_datetime(email_date_str_header)
+                                report_date_obj = email_dt_header.date() # This is the date from email header
+                            except Exception as e:
+                                print(f"Could not parse date from email header: '{email_date_str_header}'. Error: {e}. Using today's date.")
+                                report_date_obj = datetime.date.today() 
+                            
+                            filepath = _save_report_content(msg, pharmacy_config['code'], report_date_obj)
+                            if filepath:
+                                yield filepath, report_date_obj 
                         except Exception as e:
-                            print(f"Could not parse date from email header: '{email_date_str_header}'. Error: {e}. Will attempt to use today, or filename date.")
-                            # Fallback: use today's date if header parsing fails. This might not be ideal.
-                            report_date_obj = datetime.date.today() 
-                        
-                        filepath = _save_report_content(msg, pharmacy_config['code'], report_date_obj)
-                        if filepath:
-                            # The date used for DB should be the one derived from the email header if possible
-                            yield filepath, report_date_obj 
+                            print(f"Error processing email content for {pharmacy_name}: {e}")
+                            continue
+            except Exception as e:
+                print(f"Error processing email {email_id} for {pharmacy_name}: {e}")
+                continue
+                
     except Exception as e:
-        print(f"Error fetching emails for {pharmacy_config.get('name', pharmacy_config['code'])}: {e}")
+        print(f"Error fetching emails for {pharmacy_config.get('name', pharmacy_config.get('code', 'unknown'))}: {e}")
+        raise e  # Re-raise to allow calling code to handle appropriately
     finally:
         if mail:
             try:
@@ -119,8 +162,10 @@ def fetch_emails_last_n_days(pharmacy_config, days=7):
 
 def sync_all_emails(pharmacy_config):
     """Approximates fetching all emails by fetching for a large number of days (e.g., 10 years = 3650 days)."""
-    # Yield from fetch_emails_last_n_days with a large `days` value
-    # This is an approximation. For true "all" without date limits, IMAP search criteria would be different (e.g., "ALL")
-    # but processing truly all emails can be very slow.
-    print(f"Syncing all emails by fetching reports from the last ~10 years for {pharmacy_config.get('name', pharmacy_config['code'])}.")
-    yield from fetch_emails_last_n_days(pharmacy_config, days=3650) 
+    pharmacy_name = pharmacy_config.get('name', pharmacy_config.get('code', 'unknown'))
+    print(f"Syncing all emails by fetching reports from the last ~10 years for {pharmacy_name}")
+    try:
+        yield from fetch_emails_last_n_days(pharmacy_config, days=3650) 
+    except Exception as e:
+        print(f"Error during sync_all_emails for {pharmacy_name}: {e}")
+        raise e 

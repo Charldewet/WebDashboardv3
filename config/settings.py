@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+import sys
 
 # Load environment variables from .env file
 load_dotenv()
@@ -54,9 +55,30 @@ GMAIL_PASSWORD = os.getenv("FALLBACK_GMAIL_APP_PASSWORD")
 DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///db/daily_reports.db")
 
 # Verify that critical environment variables are loaded for each mailbox
+missing_credentials = []
 for mailbox in MAILBOXES:
     if not mailbox["email_user"] or not mailbox["email_password"]:
-        print(f"Warning: Missing Gmail username or password for mailbox code '{mailbox['code']}'. Please check your .env file.")
+        missing_credentials.append(f"{mailbox['code']} (missing {'username' if not mailbox['email_user'] else 'password'})")
+        print(f"Warning: Missing Gmail credentials for mailbox '{mailbox['code']}' ({mailbox['name']}). Please check your .env file.")
+
+if missing_credentials:
+    print(f"Warning: The following mailboxes have missing credentials: {', '.join(missing_credentials)}")
+    print("These pharmacies will be skipped during email fetching.")
 
 if not DATABASE_URI:
-    print("Warning: DATABASE_URI is not set. Please check your .env file or ensure the default is correct.") 
+    print("Error: DATABASE_URI is not set. Please check your .env file or ensure the default is correct.")
+    sys.exit(1)
+
+# Check if we have any valid mailbox configurations
+valid_mailboxes = [m for m in MAILBOXES if m["email_user"] and m["email_password"]]
+if not valid_mailboxes and not (GMAIL_USER and GMAIL_PASSWORD):
+    print("Error: No valid email credentials found. Please configure at least one mailbox or fallback credentials.")
+    print("Required environment variables:")
+    for mailbox in MAILBOXES:
+        print(f"  - {mailbox['code'].upper()}_GMAIL_USERNAME")
+        print(f"  - {mailbox['code'].upper()}_GMAIL_APP_PASSWORD")
+    print("Or fallback credentials:")
+    print("  - FALLBACK_GMAIL_USERNAME")
+    print("  - FALLBACK_GMAIL_APP_PASSWORD")
+else:
+    print(f"Configuration loaded: {len(valid_mailboxes)} out of {len(MAILBOXES)} mailboxes have valid credentials.") 
