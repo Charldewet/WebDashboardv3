@@ -3,6 +3,7 @@ import DailyView from './views/DailyView';
 import MonthlyView from './views/MonthlyView';
 import YearlyView from './views/YearlyView';
 import StockView from './views/StockView';
+import Login from './components/Login';
 import './App.css';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
@@ -24,6 +25,9 @@ function getLastDayOfPreviousMonth() {
 }
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState('');
+  const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState('daily');
   const [selectedPharmacy, setSelectedPharmacy] = useState(PHARMACY_OPTIONS[0].value);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -33,11 +37,70 @@ function App() {
   const calendarRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const [forceUpdateLoading, setForceUpdateLoading] = useState(false);
-  const [forceUpdateOutput, setForceUpdateOutput] = useState("");
-  const [showForceUpdateModal, setShowForceUpdateModal] = useState(false);
 
   const currentYear = new Date().getFullYear(); // Get current year
+
+  // Check authentication status on component mount
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/check_auth', {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      
+      if (data.authenticated) {
+        setIsAuthenticated(true);
+        setUsername(data.username);
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogin = (loggedInUsername) => {
+    setIsAuthenticated(true);
+    setUsername(loggedInUsername);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      setIsAuthenticated(false);
+      setUsername('');
+      setMenuOpen(false);
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#111827',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{ color: '#bdbdbd', fontSize: '1.2rem' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   const navBtnStyle = {
     background: '#111827',
@@ -113,22 +176,6 @@ function App() {
     setDisplayMonth(selectedDate || new Date());
     setShowCalendar(v => !v);
   };
-
-  async function handleForceUpdate() {
-    setForceUpdateLoading(true);
-    setForceUpdateOutput("");
-    setShowForceUpdateModal(true);
-    try {
-      const res = await fetch('/api/force_update', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.output || 'Failed to force update');
-      setForceUpdateOutput(data.output || 'Update complete.');
-    } catch (err) {
-      setForceUpdateOutput('Error running force update: ' + err.message);
-    } finally {
-      setForceUpdateLoading(false);
-    }
-  }
 
   return (
     <div className="dashboard-container" style={{ position: 'relative', minHeight: '100vh', padding: '2rem 0' }}>
@@ -212,6 +259,15 @@ function App() {
             </div>
             {/* Right-aligned icon group */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '2mm' }}>
+              {/* User indicator */}
+              <div style={{
+                color: '#bdbdbd',
+                fontSize: '0.9rem',
+                fontWeight: 500,
+                marginRight: '0.5rem',
+              }}>
+                Welcome, {username}
+              </div>
               {/* Calendar Icon */}
               <button
                 aria-label="Open calendar"
@@ -366,43 +422,6 @@ function App() {
               paddingLeft: 18,
             }}
             onClick={() => {}}>
-              Notifications
-            </button>
-            <button style={{
-              width: '92%',
-              margin: '0 auto',
-              background: '#232b3b',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              padding: '12px 0',
-              cursor: 'pointer',
-              transition: 'background 0.18s, color 0.18s',
-              textAlign: 'left',
-              paddingLeft: 18,
-              opacity: forceUpdateLoading ? 0.6 : 1,
-            }}
-            onClick={handleForceUpdate} disabled={forceUpdateLoading}>
-              {forceUpdateLoading ? 'Updating...' : 'Force Update'}
-            </button>
-            <button style={{
-              width: '92%',
-              margin: '0 auto',
-              background: '#232b3b',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              padding: '12px 0',
-              cursor: 'pointer',
-              transition: 'background 0.18s, color 0.18s',
-              textAlign: 'left',
-              paddingLeft: 18,
-            }}
-            onClick={() => {}}>
               Admin
             </button>
           </div>
@@ -421,7 +440,7 @@ function App() {
             textAlign: 'left',
             paddingLeft: 18,
           }}
-          onClick={() => {}}>
+          onClick={handleLogout}>
             Logout
           </button>
         </div>
@@ -433,17 +452,6 @@ function App() {
         {view === 'yearly' && <YearlyView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
         {view === 'stock' && <StockView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
       </div>
-      {showForceUpdateModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.45)', zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <div style={{ background: '#232b3b', color: '#fff', borderRadius: 12, padding: 32, minWidth: 340, maxWidth: 600, boxShadow: '0 2px 16px rgba(0,0,0,0.25)', position: 'relative' }}>
-            <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: '1.3rem', color: '#FF4500' }}>Force Update Progress</h2>
-            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '1.05rem', maxHeight: 350, overflowY: 'auto', background: '#181f2a', padding: 16, borderRadius: 8 }}>{forceUpdateOutput || (forceUpdateLoading ? 'Running update...' : '')}</pre>
-            <button onClick={() => setShowForceUpdateModal(false)} style={{ marginTop: 18, background: '#FF4500', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer', float: 'right' }} disabled={forceUpdateLoading}>Close</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
