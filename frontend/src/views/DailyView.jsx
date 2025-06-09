@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { PieChart, Pie, Cell, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 // Custom Tooltip for Composed Chart
 const CustomCombinedTooltip = ({ active, payload, label }) => {
@@ -366,6 +366,13 @@ function DailyView({ selectedPharmacy, selectedDate }) {
           }
         ];
 
+        // Debug logging for development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Year-over-Year Chart Data:', yoyData);
+          console.log('Current Year Turnover:', currentYearTurnover);
+          console.log('Last Year Turnover:', lastYearTurnover);
+        }
+
         setYoyComparisonData(yoyData);
         setLoadingYoyComparison(false);
       })
@@ -655,7 +662,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
         ) : yoyComparisonData.length > 0 ? (
           <>
             <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
-              <ComposedChart 
+              <BarChart 
                 data={yoyComparisonData} 
                 layout="horizontal"
                 margin={{ top: 20, right: 40, left: 80, bottom: 20 }}
@@ -696,16 +703,16 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   name="This Year" 
                   fill="#FF4500" 
                   radius={[0, 4, 4, 0]} 
-                  barSize={40}
+                  barSize={30}
                 />
                 <Bar 
                   dataKey="lastYear" 
                   name="Last Year" 
                   fill="#39FF14" 
                   radius={[0, 4, 4, 0]} 
-                  barSize={40}
+                  barSize={30}
                 />
-              </ComposedChart>
+              </BarChart>
             </ResponsiveContainer>
             <div style={{ 
               textAlign: 'center', 
