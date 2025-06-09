@@ -3,7 +3,6 @@ import DailyView from './views/DailyView';
 import MonthlyView from './views/MonthlyView';
 import YearlyView from './views/YearlyView';
 import StockView from './views/StockView';
-import Login from './components/Login';
 import './App.css';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
@@ -25,9 +24,6 @@ function getLastDayOfPreviousMonth() {
 }
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState('');
-  const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState('daily');
   const [selectedPharmacy, setSelectedPharmacy] = useState(PHARMACY_OPTIONS[0].value);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -39,69 +35,6 @@ function App() {
   const menuRef = useRef(null);
 
   const currentYear = new Date().getFullYear(); // Get current year
-  const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-
-  // Check authentication status on component mount
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/check_auth`, {
-        credentials: 'include',
-      });
-      const data = await response.json();
-      
-      if (data.authenticated) {
-        setIsAuthenticated(true);
-        setUsername(data.username);
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleLogin = (loggedInUsername) => {
-    setIsAuthenticated(true);
-    setUsername(loggedInUsername);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await fetch(`${API_BASE_URL}/api/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      setIsAuthenticated(false);
-      setUsername('');
-      setMenuOpen(false);
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
-
-  // Show loading screen while checking authentication
-  if (authLoading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#111827',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{ color: '#bdbdbd', fontSize: '1.2rem' }}>Loading...</div>
-      </div>
-    );
-  }
-
-  // Show login screen if not authenticated
-  if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
-  }
 
   const navBtnStyle = {
     background: '#111827',
@@ -260,15 +193,6 @@ function App() {
             </div>
             {/* Right-aligned icon group */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '2mm' }}>
-              {/* User indicator */}
-              <div style={{
-                color: '#bdbdbd',
-                fontSize: '0.9rem',
-                fontWeight: 500,
-                marginRight: '0.5rem',
-              }}>
-                Welcome, {username}
-              </div>
               {/* Calendar Icon */}
               <button
                 aria-label="Open calendar"
@@ -441,7 +365,7 @@ function App() {
             textAlign: 'left',
             paddingLeft: 18,
           }}
-          onClick={handleLogout}>
+          onClick={() => {}}>
             Logout
           </button>
         </div>

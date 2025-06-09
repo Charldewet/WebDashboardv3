@@ -1,4 +1,4 @@
-from flask import jsonify, request, Blueprint, Flask, session
+from flask import jsonify, request, Blueprint, Flask
 from app.models import DailyReport
 from app.db import create_session, cleanup_db_sessions
 import subprocess
@@ -46,58 +46,13 @@ def memory_cleanup(f):
                 print(f"[Memory] Cleanup error in {f.__name__}: {e}", flush=True)
     return decorated_function
 
-def require_auth(f):
-    """Decorator to require authentication for protected routes."""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('authenticated'):
-            return jsonify({'error': 'Authentication required'}), 401
-        return f(*args, **kwargs)
-    return decorated_function
-
 # Optimize memory at startup
 startup_memory = optimize_memory()
 print(f"[Startup] Application started with {startup_memory:.2f} MB memory usage", flush=True)
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-# Simple hardcoded user for demo purposes
-USERS = {
-    'Charl': 'admin'
-}
-
-@api_bp.route('/login', methods=['POST'])
-def login():
-    """Simple login endpoint."""
-    try:
-        data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
-        
-        if username in USERS and USERS[username] == password:
-            session['authenticated'] = True
-            session['username'] = username
-            return jsonify({'success': True, 'username': username})
-        else:
-            return jsonify({'error': 'Invalid credentials'}), 401
-    except Exception as e:
-        return jsonify({'error': 'Login failed'}), 500
-
-@api_bp.route('/logout', methods=['POST'])
-def logout():
-    """Logout endpoint."""
-    session.clear()
-    return jsonify({'success': True})
-
-@api_bp.route('/check_auth', methods=['GET'])
-def check_auth():
-    """Check if user is authenticated."""
-    if session.get('authenticated'):
-        return jsonify({'authenticated': True, 'username': session.get('username')})
-    return jsonify({'authenticated': False})
-
 @api_bp.route('/turnover', methods=['GET'])
-@require_auth
 def get_turnover():
     pharmacy = request.args.get('pharmacy')
     date = request.args.get('date')  # Optionally filter by date
@@ -111,7 +66,6 @@ def get_turnover():
     return jsonify({'pharmacy': pharmacy, 'turnover': turnover})
 
 @api_bp.route('/turnover_for_range/<start_date>/<end_date>', methods=['GET'])
-@require_auth
 def get_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -126,7 +80,6 @@ def get_turnover_for_range(start_date, end_date):
     return jsonify({'pharmacy': pharmacy, 'turnover': turnover})
 
 @api_bp.route('/daily_turnover_for_range/<start_date>/<end_date>', methods=['GET'])
-@require_auth
 def get_daily_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -144,7 +97,6 @@ def get_daily_turnover_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_turnover": daily_turnover})
 
 @api_bp.route('/daily_avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
-@require_auth
 def get_daily_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -165,7 +117,6 @@ def get_daily_avg_basket_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_avg_basket": daily_avg_basket})
 
 @api_bp.route('/avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
-@require_auth
 def get_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -191,7 +142,6 @@ def get_avg_basket_for_range(start_date, end_date):
     })
 
 @api_bp.route('/gp_for_range/<start_date>/<end_date>', methods=['GET'])
-@require_auth
 def get_gp_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -1020,4 +970,11 @@ def start_periodic_fetch_once():
     else:
         print("[Startup] Periodic fetch disabled for local development", flush=True)
 
-start_periodic_fetch_once() 
+start_periodic_fetch_once()
+
+app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}})
+app.register_blueprint(api_bp)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000) 
