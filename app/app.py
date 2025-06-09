@@ -527,6 +527,72 @@ def get_closing_stock_for_range(start_date, end_date):
         'date_used': query.report_date.strftime('%Y-%m-%d') if query else None
     })
 
+@api_bp.route('/monthly_closing_stock_for_range/<start_date>/<end_date>', methods=['GET'])
+def get_monthly_closing_stock_for_range(start_date, end_date):
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    session = create_session()
+    
+    from datetime import datetime
+    import calendar
+    
+    try:
+        # Parse the date range
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        monthly_closing_stock = []
+        
+        # Calculate months to include
+        current_year = start_date_obj.year
+        current_month = start_date_obj.month
+        
+        # Generate month by month data
+        year = current_year
+        month = current_month
+        
+        while year < end_date_obj.year or (year == end_date_obj.year and month <= end_date_obj.month):
+            # Get the last day of this month
+            last_day_of_month = calendar.monthrange(year, month)[1]
+            
+            # Find the most recent closing stock value for this month
+            month_start = f"{year}-{month:02d}-01"
+            month_end = f"{year}-{month:02d}-{last_day_of_month}"
+            
+            query = session.query(DailyReport).filter(
+                DailyReport.pharmacy_code == pharmacy,
+                DailyReport.report_date >= month_start,
+                DailyReport.report_date <= month_end,
+                DailyReport.closing_stock_today.isnot(None)
+            ).order_by(DailyReport.report_date.desc()).first()
+            
+            closing_stock_value = query.closing_stock_today if query else 0
+            
+            monthly_closing_stock.append({
+                "month": f"{year}-{month:02d}",
+                "month_name": datetime(year, month, 1).strftime('%b %Y'),
+                "closing_stock": round(closing_stock_value, 2)
+            })
+            
+            # Move to next month
+            month += 1
+            if month > 12:
+                month = 1
+                year += 1
+        
+        session.close()
+        return jsonify({
+            "pharmacy": pharmacy,
+            "monthly_closing_stock": monthly_closing_stock
+        })
+        
+    except Exception as e:
+        session.close()
+        return jsonify({
+            'pharmacy': pharmacy,
+            'monthly_closing_stock': [],
+            'error': f'Error fetching monthly closing stock: {str(e)}'
+        }), 500
+
 @api_bp.route('/status', methods=['GET'])
 @memory_cleanup  
 def app_status():

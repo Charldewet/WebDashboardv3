@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { PieChart, Pie, Cell, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-// Custom Tooltip for Composed Chart
-const CustomCombinedTooltip = ({ active, payload, label }) => {
+// Custom Tooltip for Monthly Inventory Chart
+const CustomInventoryTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
-    const turnoverData = payload.find(p => p.dataKey === 'turnover');
-    const basketData = payload.find(p => p.dataKey === 'avg_basket_value');
+    const inventoryData = payload.find(p => p.dataKey === 'closing_stock');
 
     return (
       <div style={{
@@ -19,14 +18,12 @@ const CustomCombinedTooltip = ({ active, payload, label }) => {
         fontWeight: 500,
         boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
       }}>
-        {turnoverData && (
-          <p style={{ margin: 0, color: turnoverData.payload.fill === '#FF4500' ? '#FF4500' : '#39FF14' }}>
-            {`Turnover: R ${turnoverData.value.toLocaleString('en-ZA')}`}
-          </p>
-        )}
-        {basketData && (
+        <p style={{ margin: 0, color: '#FFB800', fontWeight: 600 }}>
+          {`${label}`}
+        </p>
+        {inventoryData && (
           <p style={{ margin: '0.2rem 0 0 0', color: '#fff' }}>
-            {`Avg Basket: R ${basketData.value.toLocaleString('en-ZA', { maximumFractionDigits: 2 })}`}
+            {`Closing Stock: R ${inventoryData.value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`}
           </p>
         )}
       </div>
@@ -60,9 +57,9 @@ function StockView({ selectedPharmacy, selectedDate }) {
   const [loadingDispPie, setLoadingDispPie] = useState(true);
   const [errorDispPie, setErrorDispPie] = useState(null);
 
-  const [combinedChartData, setCombinedChartData] = useState([]);
-  const [loadingCombinedChart, setLoadingCombinedChart] = useState(true);
-  const [errorCombinedChart, setErrorCombinedChart] = useState(null);
+  const [inventoryChartData, setInventoryChartData] = useState([]);
+  const [loadingInventoryChart, setLoadingInventoryChart] = useState(true);
+  const [errorInventoryChart, setErrorInventoryChart] = useState(null);
 
   const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -75,7 +72,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
       setCostStats({ cost: null, closingStock: null }); setLoadingCostStats(true); setErrorCostStats(null);
       setTransStats({ transactions: null, scripts: null }); setLoadingTransStats(true); setErrorTransStats(null);
       setDispPie({ percent: null, disp: null, total: null }); setLoadingDispPie(true); setErrorDispPie(null);
-      setCombinedChartData([]); setLoadingCombinedChart(true); setErrorCombinedChart(null);
+      setInventoryChartData([]); setLoadingInventoryChart(true); setErrorInventoryChart(null);
       return;
     }
 
@@ -86,7 +83,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
     setLoadingCostStats(true); setErrorCostStats(null); setCostStats({ cost: null, closingStock: null });
     setLoadingTransStats(true); setErrorTransStats(null); setTransStats({ transactions: null, scripts: null });
     setLoadingDispPie(true); setErrorDispPie(null); setDispPie({ percent: null, disp: null, total: null });
-    setLoadingCombinedChart(true); setErrorCombinedChart(null); setCombinedChartData([]);
+    setLoadingInventoryChart(true); setErrorInventoryChart(null); setInventoryChartData([]);
 
     // Calculate first day of the month from selected date
     const selectedDateObj = new Date(selectedDate);
@@ -189,58 +186,42 @@ function StockView({ selectedPharmacy, selectedDate }) {
         setLoadingDispPie(false);
       });
 
-    // Calculate the date range for the chart (14 days ending with selected date)
-    const endDate = new Date(selectedDate);
-    const startDate = new Date(endDate);
-    startDate.setDate(endDate.getDate() - 13); // 14 days total
+    // Calculate the date range for 12-month inventory chart
+    const currentMonth = selectedDateObj.getMonth() + 1; // 1-12
+    const currentYear = selectedDateObj.getFullYear();
+    
+    // Calculate 12 months back from current month
+    let startMonth = currentMonth - 11;
+    let startYear = currentYear;
+    
+    if (startMonth <= 0) {
+      startMonth += 12;
+      startYear -= 1;
+    }
+    
+    const chartStartDate = `${startYear}-${startMonth.toString().padStart(2, '0')}-01`;
+    const chartEndDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${new Date(currentYear, currentMonth, 0).getDate()}`;
 
-    const formatDateForAPI = (date) => {
-      const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    const chartStartDate = formatDateForAPI(startDate);
-    const chartEndDate = formatDateForAPI(endDate);
-
-    // Fetch 14-day turnover and basket data for combined chart
-    Promise.all([
-      axios.get(`${API_BASE_URL}/api/daily_turnover_for_range/${chartStartDate}/${chartEndDate}`, {
-        headers: { 'X-Pharmacy': selectedPharmacy }
-      }),
-      axios.get(`${API_BASE_URL}/api/daily_avg_basket_for_range/${chartStartDate}/${chartEndDate}`, {
-        headers: { 'X-Pharmacy': selectedPharmacy }
-      })
-    ])
-      .then(([turnoverRes, basketRes]) => {
-        const dailyTurnover = turnoverRes.data?.daily_turnover || [];
-        const dailyBasket = basketRes.data?.daily_avg_basket || [];
-
-        // Create a combined dataset
-        const dataMap = {};
-        dailyTurnover.forEach(item => {
-          dataMap[item.date] = { 
-            date: item.date, 
-            turnover: item.turnover || 0,
-            fill: item.date === selectedDate ? '#FF4500' : '#39FF14' // Highlight selected date
-          };
-        });
-
-        dailyBasket.forEach(item => {
-          if (dataMap[item.date]) {
-            dataMap[item.date].avg_basket_value = item.avg_basket_value || 0;
-          }
-        });
-
-        const chartData = Object.values(dataMap).sort((a, b) => a.date.localeCompare(b.date));
-        setCombinedChartData(chartData);
-        setLoadingCombinedChart(false);
+    // Fetch 12-month inventory data
+    axios.get(`${API_BASE_URL}/api/monthly_closing_stock_for_range/${chartStartDate}/${chartEndDate}`, {
+      headers: { 'X-Pharmacy': selectedPharmacy }
+    })
+      .then(res => {
+        const monthlyData = res.data?.monthly_closing_stock || [];
+        
+        // Add color coding - highlight current month
+        const processedData = monthlyData.map(item => ({
+          ...item,
+          fill: item.month === `${currentYear}-${currentMonth.toString().padStart(2, '0')}` ? '#FF4500' : '#FFB800'
+        }));
+        
+        setInventoryChartData(processedData);
+        setLoadingInventoryChart(false);
       })
       .catch(err => {
-        setErrorCombinedChart('Error fetching chart data.');
-        setCombinedChartData([]);
-        setLoadingCombinedChart(false);
+        setErrorInventoryChart('Error fetching inventory chart data.');
+        setInventoryChartData([]);
+        setLoadingInventoryChart(false);
       });
 
   }, [selectedPharmacy, selectedDate]);
@@ -258,7 +239,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
 
   return (
     <div style={{ width: '100vw', boxSizing: 'border-box', marginTop: '-2mm', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* 14-Day Combined Chart */}
+      {/* 12-Month Inventory Chart */}
       <div style={{
         width: 'calc(100vw - 5mm)',
         height: 152,
@@ -272,38 +253,28 @@ function StockView({ selectedPharmacy, selectedDate }) {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        {loadingCombinedChart ? (
-          <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bdbdbd', fontSize: '0.9rem' }}>Loading 14-day chart...</div>
-        ) : errorCombinedChart ? (
-          <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontSize: '0.9rem' }}>{errorCombinedChart}</div>
-        ) : combinedChartData && combinedChartData.length > 0 ? (
+        {loadingInventoryChart ? (
+          <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bdbdbd', fontSize: '0.9rem' }}>Loading 12-month inventory...</div>
+        ) : errorInventoryChart ? (
+          <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontSize: '0.9rem' }}>{errorInventoryChart}</div>
+        ) : inventoryChartData && inventoryChartData.length > 0 ? (
           <>
             <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
-              <ComposedChart data={combinedChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <Tooltip content={<CustomCombinedTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
-                <Bar dataKey="turnover" yAxisId="left" name="Turnover" radius={[4, 4, 0, 0]} barSize={18}>
-                  {combinedChartData.map((entry, index) => (
-                    <Cell key={`cell-turnover-${index}`} fill={entry.fill} />
+              <BarChart data={inventoryChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                <Tooltip content={<CustomInventoryTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
+                <Bar dataKey="closing_stock" name="Closing Stock" radius={[4, 4, 0, 0]} barSize={18}>
+                  {inventoryChartData.map((entry, index) => (
+                    <Cell key={`cell-inventory-${index}`} fill={entry.fill} />
                   ))}
                 </Bar>
-                <Line 
-                  type="monotone" 
-                  dataKey="avg_basket_value" 
-                  yAxisId="right" 
-                  name="Avg Basket Value" 
-                  stroke="#fff" 
-                  strokeWidth={3.5} 
-                  dot={false}
-                  activeDot={false}
-                />
-              </ComposedChart>
+              </BarChart>
             </ResponsiveContainer>
             <div style={{ textAlign: 'center', color: '#bdbdbd', fontSize: '0.8rem', paddingTop: '4px', flexShrink: 0 }}>
-              14-Day Sales Window
+              12-Month Inventory Window
             </div>
           </>
         ) : (
-          <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bdbdbd', fontSize: '0.9rem' }}>No data for 14-day trend.</div>
+          <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bdbdbd', fontSize: '0.9rem' }}>No data for 12-month inventory.</div>
         )}
       </div>
 
