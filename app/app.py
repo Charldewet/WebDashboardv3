@@ -422,39 +422,71 @@ def get_opening_stock_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
     
-    # First try to get the specific report for the start_date (first day of month)
-    query = session.query(DailyReport).filter(
-        DailyReport.pharmacy_code == pharmacy,
-        DailyReport.report_date == start_date
-    ).first()
+    from datetime import datetime, timedelta
+    import calendar
     
-    # If no data for the exact first day, get the first available report in the month with opening stock
-    if not query or not query.opening_stock_today:
-        # Get the first day of the month from start_date
-        from datetime import datetime
+    try:
+        # Parse the start_date to get the month and year
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
         year = start_date_obj.year
         month = start_date_obj.month
         
-        # Look for the first available report in the same month with opening stock data
-        query = session.query(DailyReport).filter(
-            DailyReport.pharmacy_code == pharmacy,
-            DailyReport.report_date >= start_date,
-            DailyReport.report_date < f'{year}-{month+1:02d}-01' if month < 12 else f'{year+1}-01-01',
-            DailyReport.opening_stock_today.isnot(None),
-            DailyReport.opening_stock_today > 0
-        ).order_by(DailyReport.report_date).first()
-    
-    opening_stock = query.opening_stock_today if query and query.opening_stock_today else 0
-    actual_date = query.report_date.strftime('%Y-%m-%d') if query else start_date
-    
-    session.close()
-    return jsonify({
-        'pharmacy': pharmacy,
-        'opening_stock': round(opening_stock, 2),
-        'date_queried': start_date,
-        'actual_date_used': actual_date
-    })
+        # Get the last day of the month
+        last_day_of_month = calendar.monthrange(year, month)[1]
+        
+        # Start checking from the 1st day of the month
+        current_day = 1
+        opening_stock = 0
+        actual_date_used = start_date
+        
+        while current_day <= last_day_of_month:
+            # Format the current date we're checking
+            check_date = f"{year}-{month:02d}-{current_day:02d}"
+            
+            # Query for this specific date
+            query = session.query(DailyReport).filter(
+                DailyReport.pharmacy_code == pharmacy,
+                DailyReport.report_date == check_date
+            ).first()
+            
+            # Check if we found a valid opening stock value
+            if query and query.opening_stock_today and query.opening_stock_today > 0:
+                opening_stock = query.opening_stock_today
+                actual_date_used = check_date
+                break
+            
+            # Move to the next day
+            current_day += 1
+        
+        session.close()
+        
+        return jsonify({
+            'pharmacy': pharmacy,
+            'opening_stock': round(opening_stock, 2),
+            'date_requested': start_date,
+            'actual_date_used': actual_date_used,
+            'days_checked': current_day if opening_stock > 0 else last_day_of_month,
+            'success': opening_stock > 0
+        })
+        
+    except ValueError as e:
+        session.close()
+        return jsonify({
+            'pharmacy': pharmacy,
+            'opening_stock': 0,
+            'error': f'Invalid date format: {str(e)}',
+            'date_requested': start_date,
+            'success': False
+        }), 400
+    except Exception as e:
+        session.close()
+        return jsonify({
+            'pharmacy': pharmacy,
+            'opening_stock': 0,
+            'error': f'Database error: {str(e)}',
+            'date_requested': start_date,
+            'success': False
+        }), 500
 
 @api_bp.route('/status', methods=['GET'])
 @memory_cleanup  
