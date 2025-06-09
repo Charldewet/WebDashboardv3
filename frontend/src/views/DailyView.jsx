@@ -693,7 +693,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
               return null;
             })()}
             
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart 
                 data={yoyComparisonData.map(item => ({
                   category: item.category || 'Day',
@@ -703,11 +703,14 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   lastYearDate: item.lastYearDate
                 }))} 
                 layout="horizontal"
-                margin={{ top: 20, right: 30, left: 80, bottom: 20 }}
+                margin={{ top: 40, right: 50, left: 100, bottom: 40 }}
+                barCategoryGap="20%"
+                barGap={4}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 
                   type="number"
+                  domain={[0, (dataMax) => Math.max(dataMax * 1.1, 1000)]}
                   tick={{ fontSize: 11, fill: '#9CA3AF' }}
                   tickFormatter={(value) => {
                     if (value === null || value === undefined || isNaN(value) || !isFinite(value)) {
@@ -726,7 +729,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   tick={{ fontSize: 12, fill: '#9CA3AF' }} 
                   axisLine={{ stroke: '#4B5563' }} 
                   tickLine={{ stroke: '#4B5563' }}
-                  width={70}
+                  width={120}
                 />
                 <Tooltip content={<CustomYoYTooltip />} cursor={{ fill: 'rgba(128, 128, 128, 0.1)' }}/>
                 <Legend 
@@ -743,15 +746,19 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                   dataKey="currentYear" 
                   name="This Year" 
                   fill="#FF4500"
-                  barSize={20}
-                  maxBarSize={20}
+                  stroke="#FF4500"
+                  strokeWidth={1}
+                  barSize={40}
+                  maxBarSize={40}
                 />
                 <Bar 
                   dataKey="lastYear" 
                   name="Last Year" 
                   fill="#39FF14"
-                  barSize={20}
-                  maxBarSize={20}
+                  stroke="#39FF14"
+                  strokeWidth={1}
+                  barSize={40}
+                  maxBarSize={40}
                 />
               </BarChart>
             </ResponsiveContainer>
