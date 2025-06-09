@@ -695,19 +695,27 @@ function DailyView({ selectedPharmacy, selectedDate }) {
             
             <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
               <BarChart 
-                data={yoyComparisonData} 
+                data={yoyComparisonData.map(item => ({
+                  category: item.category || 'Day',
+                  currentYear: Math.max(0, Number(item.currentYear) || 0),
+                  lastYear: Math.max(0, Number(item.lastYear) || 0),
+                  currentDate: item.currentDate,
+                  lastYearDate: item.lastYearDate
+                }))} 
                 layout="horizontal"
                 margin={{ top: 20, right: 30, left: 80, bottom: 20 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 
                   type="number"
-                  domain={[0, 'dataMax']}
                   tick={{ fontSize: 11, fill: '#9CA3AF' }}
                   tickFormatter={(value) => {
+                    if (value === null || value === undefined || isNaN(value) || !isFinite(value)) {
+                      return 'R0';
+                    }
                     if (value >= 1000000) return `R${(value/1000000).toFixed(1)}M`;
                     if (value >= 1000) return `R${(value/1000).toFixed(0)}k`;
-                    return `R${value}`;
+                    return `R${Math.round(value)}`;
                   }}
                   axisLine={{ stroke: '#4B5563' }}
                   tickLine={{ stroke: '#4B5563' }}
