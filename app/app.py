@@ -1020,11 +1020,4 @@ def start_periodic_fetch_once():
     else:
         print("[Startup] Periodic fetch disabled for local development", flush=True)
 
-start_periodic_fetch_once()
-
-app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}})
-app.register_blueprint(api_bp)
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000) 
+start_periodic_fetch_once() 

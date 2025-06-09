@@ -17,8 +17,12 @@ app.config['SESSION_FILE_THRESHOLD'] = 100
 # Initialize Flask-Session
 Session(app)
 
-# Enable CORS for all routes and all origins on this app instance
-CORS(app, supports_credentials=True)
+# Enable CORS for requests from frontend domain
+CORS(app, 
+     origins=['https://webdashfront.onrender.com', 'http://localhost:5175', 'http://localhost:3000', 'http://localhost:5000'],
+     supports_credentials=True,
+     allow_headers=['Content-Type', 'X-Pharmacy', 'Authorization'],
+     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
 # Register the Blueprint from the imported module
 # Access api_bp as an attribute of routes_module

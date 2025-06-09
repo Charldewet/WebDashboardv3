@@ -39,6 +39,7 @@ function App() {
   const menuRef = useRef(null);
 
   const currentYear = new Date().getFullYear(); // Get current year
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
   // Check authentication status on component mount
   useEffect(() => {
@@ -47,7 +48,7 @@ function App() {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch('/api/check_auth', {
+      const response = await fetch(`${API_BASE_URL}/api/check_auth`, {
         credentials: 'include',
       });
       const data = await response.json();
@@ -70,7 +71,7 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/logout', {
+      await fetch(`${API_BASE_URL}/api/logout`, {
         method: 'POST',
         credentials: 'include',
       });
