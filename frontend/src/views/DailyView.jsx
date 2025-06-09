@@ -65,7 +65,7 @@ const CustomYoYTooltip = ({ active, payload, label }) => {
           </p>
         )}
         {lastYearData && (
-          <p style={{ margin: '0.4rem 0 0 0', color: '#39FF14', fontSize: '1rem', fontWeight: 600 }}>
+          <p style={{ margin: '0.4rem 0 0 0', color: '#EFB9AF', fontSize: '1rem', fontWeight: 600 }}>
             {`Last Year: R ${lastYearData.value.toLocaleString('en-ZA')}`}
           </p>
         )}
@@ -693,6 +693,43 @@ function DailyView({ selectedPharmacy, selectedDate }) {
               return null;
             })()}
             
+            {/* Year-over-Year Comparison Balloon */}
+            {(() => {
+              const currentYear = yoyComparisonData[0]?.currentYear || 0;
+              const lastYear = yoyComparisonData[0]?.lastYear || 0;
+              const difference = currentYear - lastYear;
+              const percentageChange = lastYear > 0 ? ((difference / lastYear) * 100) : 0;
+              const isPositive = difference > 0;
+              
+              return (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  marginBottom: '1rem'
+                }}>
+                  <div style={{
+                    background: isPositive ? '#39FF14' : '#FF4500',
+                    color: '#fff',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '1.5rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                  }}>
+                    <span style={{ fontSize: '1rem' }}>
+                      {isPositive ? '↗' : '↓'}
+                    </span>
+                    <span>
+                      R {Math.abs(difference).toLocaleString('en-ZA', { maximumFractionDigits: 0 })} ({Math.abs(percentageChange).toFixed(1)}%) {isPositive ? 'more' : 'less'} than last year
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+            
             <ResponsiveContainer width="100%" style={{ flexGrow: 1, minHeight: 0 }}>
               <BarChart 
                 data={yoyComparisonData.map(item => ({
@@ -745,7 +782,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
                 <Bar 
                   dataKey="lastYear" 
                   name="Last Year" 
-                  fill="#39FF14"
+                  fill="#EFB9AF"
                   radius={[4, 4, 0, 0]} 
                   barSize={60}
                 />
@@ -758,7 +795,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
               paddingTop: '4px', 
               flexShrink: 0 
             }}>
-              Comparing {yoyComparisonData[0]?.category} sales
+              
             </div>
           </>
         ) : (
