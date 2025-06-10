@@ -142,17 +142,19 @@
   background: var(--calendar-bg);
   color: var(--calendar-fg);
   border-radius: var(--calendar-radius);
-  padding: 1.2rem 1.5rem;
+  padding: 1rem;
   box-shadow: 0 2px 16px rgba(0,0,0,0.18);
   font-family: inherit;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .admin-calendar .rdp-caption {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 1.2rem;
-  margin-bottom: 1rem;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
   color: #fff;
 }
 
@@ -160,12 +162,12 @@
   background: none;
   border: none;
   color: var(--calendar-accent) !important;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   cursor: pointer;
   border-radius: 50%;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2rem;
+  height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -191,28 +193,28 @@
   color: #fff;
   border: none;
   border-radius: 8px;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
-  padding: 0.3rem 2rem 0.3rem 0.7rem;
-  margin: 0 0.2rem;
+  padding: 0.3rem 1.5rem 0.3rem 0.5rem;
+  margin: 0 0.1rem;
   position: relative;
   background-image: url("data:image/svg+xml;utf8,<svg fill='%23FF4500' height='16' viewBox='0 0 20 20' width='16' xmlns='http://www.w3.org/2000/svg'><path d='M5.516 7.548a1 1 0 0 1 1.415 0L10 10.617l3.07-3.07a1 1 0 1 1 1.415 1.415l-3.777 3.778a1 1 0 0 1-1.415 0L5.516 8.963a1 1 0 0 1 0-1.415z'/></svg>");
   background-repeat: no-repeat;
-  background-position: right 0.7rem center;
-  background-size: 1.1em;
+  background-position: right 0.5rem center;
+  background-size: 1em;
 }
 
 .admin-calendar .rdp-table {
   width: 100%;
   border-collapse: separate;
-  border-spacing: 0.5rem;
+  border-spacing: 0.25rem;
   table-layout: fixed;
 }
 
 .admin-calendar .rdp-head_cell {
   color: #9CA3AF;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9rem;
   text-align: center;
   padding-bottom: 0.2rem;
 }
@@ -221,10 +223,10 @@
   background: none;
   color: #9CA3AF;
   border: none;
-  border-radius: 10px;
-  width: 2.5rem;
-  height: 2.5rem;
-  font-size: 1.1rem;
+  border-radius: 8px;
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1rem;
   font-weight: 500;
   transition: background 0.18s, color 0.18s;
   cursor: default;
@@ -237,12 +239,10 @@
   color: #fff !important;
   font-weight: 700 !important;
   cursor: pointer !important;
-  border: 2px solid #FF6B35 !important;
   box-shadow: 0 0 8px rgba(255, 69, 0, 0.3) !important;
 }
 .admin-calendar .rdp-day.admin-calendar-missing:hover {
   background: #E63E00 !important;
-  border-color: #FF8C42 !important;
   box-shadow: 0 0 12px rgba(255, 69, 0, 0.5) !important;
 }
 

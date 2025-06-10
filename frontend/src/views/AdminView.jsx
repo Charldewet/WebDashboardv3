@@ -177,18 +177,18 @@ function AdminView({ selectedPharmacy }) {
   }, [showModal]);
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+    <div style={{ padding: '1rem', maxWidth: '100%', margin: '0 auto', overflow: 'hidden' }}>
       {/* Header */}
       <div style={{
         background: '#232b3b',
         color: '#fff',
-        borderRadius: '1.2rem',
-        padding: '1.5rem',
-        marginBottom: '2rem',
+        borderRadius: '1rem',
+        padding: '1rem',
+        marginBottom: '1.5rem',
         textAlign: 'center'
       }}>
         <h1 style={{
-          fontSize: '2rem',
+          fontSize: '1.5rem',
           fontWeight: 700,
           margin: 0,
           marginBottom: '0.5rem'
@@ -196,7 +196,7 @@ function AdminView({ selectedPharmacy }) {
           Manual Turnover Entry
         </h1>
         <p style={{
-          fontSize: '1rem',
+          fontSize: '0.9rem',
           color: '#bdbdbd',
           margin: 0
         }}>
@@ -210,11 +210,11 @@ function AdminView({ selectedPharmacy }) {
         border: '2px solid #374151',
         borderRadius: '0.75rem',
         padding: '1rem',
-        marginBottom: '2rem',
+        marginBottom: '1.5rem',
         color: '#D1D5DB'
       }}>
-        <h3 style={{ margin: '0 0 0.5rem 0', color: '#FF4500' }}>Instructions:</h3>
-        <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+        <h3 style={{ margin: '0 0 0.5rem 0', color: '#FF4500', fontSize: '1rem' }}>Instructions:</h3>
+        <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.9rem' }}>
           <li>Orange dates can be selected (missing turnover data)</li>
           <li>Gray dates cannot be selected (already have turnover data)</li>
           <li>Only dates from the last 90 days are shown</li>
@@ -251,11 +251,11 @@ function AdminView({ selectedPharmacy }) {
         <div style={{
           background: '#232b3b',
           borderRadius: '0.75rem',
-          padding: '1rem',
-          marginBottom: '2rem',
+          padding: '0.8rem',
+          marginBottom: '1.5rem',
           textAlign: 'center'
         }}>
-          <span style={{ color: '#bdbdbd' }}>
+          <span style={{ color: '#bdbdbd', fontSize: '0.9rem' }}>
             Found{' '}
             <span style={{ color: '#FF4500', fontWeight: 600 }}>
               {missingDates.length}
@@ -272,7 +272,8 @@ function AdminView({ selectedPharmacy }) {
           justifyContent: 'center',
           background: '#232b3b',
           borderRadius: '1rem',
-          padding: '2rem'
+          padding: '1rem',
+          overflow: 'auto'
         }}>
           <DayPicker
             mode="single"
