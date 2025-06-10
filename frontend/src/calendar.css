@@ -232,18 +232,22 @@
 }
 
 /* Missing dates - orange, clickable */
-.admin-calendar .admin-calendar-missing .rdp-day {
-  background: var(--calendar-missing) !important;
+.admin-calendar .rdp-day.admin-calendar-missing {
+  background: #FF4500 !important;
   color: #fff !important;
-  font-weight: 600;
-  cursor: pointer;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  border: 2px solid #FF6B35 !important;
+  box-shadow: 0 0 8px rgba(255, 69, 0, 0.3) !important;
 }
-.admin-calendar .admin-calendar-missing .rdp-day:hover {
+.admin-calendar .rdp-day.admin-calendar-missing:hover {
   background: #E63E00 !important;
+  border-color: #FF8C42 !important;
+  box-shadow: 0 0 12px rgba(255, 69, 0, 0.5) !important;
 }
 
 /* Disabled dates - gray, not clickable */
-.admin-calendar .admin-calendar-disabled .rdp-day {
+.admin-calendar .rdp-day.admin-calendar-disabled {
   background: var(--calendar-disabled) !important;
   color: #6B7280 !important;
   cursor: not-allowed;

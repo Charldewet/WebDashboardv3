@@ -138,6 +138,7 @@ function AdminView({ selectedPharmacy }) {
   // Debug: log the dates for troubleshooting
   console.log('Missing dates from API:', missingDates);
   console.log('Missing date objects for calendar:', missingDateObjects);
+  console.log('Date range:', { start: startDate, end: endDate });
   
   const modifiers = {
     missing: missingDateObjects,
@@ -145,7 +146,14 @@ function AdminView({ selectedPharmacy }) {
       const dateStr = formatDate(date);
       const isNotMissing = !missingDates.includes(dateStr);
       const isOutOfRange = date > endDate || date < startDate;
-      return isNotMissing || isOutOfRange;
+      const shouldDisable = isNotMissing || isOutOfRange;
+      
+      // Debug specific dates to see why they might be disabled
+      if (dateStr === '2025-05-01' || dateStr === '2025-05-04' || dateStr === '2025-03-21') {
+        console.log(`Date ${dateStr}: isMissing=${missingDates.includes(dateStr)}, isOutOfRange=${isOutOfRange}, shouldDisable=${shouldDisable}`);
+      }
+      
+      return shouldDisable;
     }
   };
 
