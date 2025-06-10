@@ -41,7 +41,7 @@ function AdminView({ selectedPharmacy }) {
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
-    fetch(`${API_BASE_URL}/missing_turnover_dates/${selectedPharmacy}/${startDateStr}/${endDateStr}`)
+    fetch(`${API_BASE_URL}/api/missing_turnover_dates/${selectedPharmacy}/${startDateStr}/${endDateStr}`)
       .then(response => response.json())
       .then(data => {
         if (data.error) {
@@ -95,7 +95,7 @@ function AdminView({ selectedPharmacy }) {
     setSubmitError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/manual_turnover`, {
+      const response = await fetch(`${API_BASE_URL}/api/manual_turnover`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
