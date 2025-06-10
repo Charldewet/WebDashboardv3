@@ -79,7 +79,11 @@ function App() {
     if (!showCalendar) return;
     function handleClickOutside(event) {
       if (calendarRef.current && !calendarRef.current.contains(event.target)) {
-        setShowCalendar(false);
+        // Check if the click is on the calendar button itself
+        const calendarButton = event.target.closest('button[aria-label="Open calendar"]');
+        if (!calendarButton) {
+          setShowCalendar(false);
+        }
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -91,7 +95,11 @@ function App() {
     if (!menuOpen) return;
     function handleClickOutside(event) {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
+        // Check if the click is on the menu button itself
+        const menuButton = event.target.closest('button[aria-label="Open menu"]');
+        if (!menuButton) {
+          setMenuOpen(false);
+        }
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -106,9 +114,15 @@ function App() {
     return `${year}-${month}-${day}`;
   };
 
-  const handleCalendarOpen = () => {
+  const handleCalendarOpen = (event) => {
+    event.stopPropagation();
     setDisplayMonth(selectedDate || new Date());
     setShowCalendar(v => !v);
+  };
+
+  const handleMenuToggle = (event) => {
+    event.stopPropagation();
+    setMenuOpen(v => !v);
   };
 
   return (
@@ -226,7 +240,7 @@ function App() {
                   display: 'flex',
                   alignItems: 'center',
                 }}
-                onClick={() => setMenuOpen(v => !v)}
+                onClick={handleMenuToggle}
               >
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FF4500" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="4" y1="5" x2="20" y2="5" />
