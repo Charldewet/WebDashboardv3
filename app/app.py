@@ -740,6 +740,174 @@ def get_days_of_inventory_for_range(start_date, end_date):
             'error': f'Error calculating days of inventory: {str(e)}'
         }), 500
 
+@api_bp.route('/missing_turnover_dates/<pharmacy_code>/<start_date>/<end_date>', methods=['GET'])
+@memory_cleanup
+def get_missing_turnover_dates(pharmacy_code, start_date, end_date):
+    """Get dates in the specified range that have no turnover data for the given pharmacy."""
+    try:
+        session = create_session()
+        
+        # Get all dates in the range that have either no record or null/zero turnover
+        from datetime import datetime, timedelta
+        
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+        # Generate all dates in range
+        all_dates = []
+        current_date = start_date_obj
+        while current_date <= end_date_obj:
+            all_dates.append(current_date)
+            current_date += timedelta(days=1)
+        
+        # Get existing reports in the date range
+        existing_reports = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy_code,
+            DailyReport.report_date >= start_date,
+            DailyReport.report_date <= end_date
+        ).all()
+        
+        # Create a set of dates that have valid turnover data
+        dates_with_turnover = set()
+        for report in existing_reports:
+            if report.total_turnover_today and report.total_turnover_today > 0:
+                dates_with_turnover.add(report.report_date)
+        
+        # Find missing dates
+        missing_dates = []
+        for date in all_dates:
+            if date not in dates_with_turnover:
+                missing_dates.append(date.strftime('%Y-%m-%d'))
+        
+        session.close()
+        return jsonify({
+            'pharmacy': pharmacy_code,
+            'missing_dates': missing_dates,
+            'total_missing': len(missing_dates)
+        })
+        
+    except Exception as e:
+        session.close() if 'session' in locals() else None
+        return jsonify({
+            'error': f'Error fetching missing turnover dates: {str(e)}'
+        }), 500
+
+@api_bp.route('/manual_turnover', methods=['POST'])
+@memory_cleanup
+def add_manual_turnover():
+    """Add manual turnover data for a specific pharmacy and date."""
+    try:
+        data = request.get_json()
+        
+        if not data or not all(key in data for key in ['pharmacy_code', 'date', 'turnover_value']):
+            return jsonify({
+                'error': 'Missing required fields: pharmacy_code, date, turnover_value'
+            }), 400
+        
+        pharmacy_code = data['pharmacy_code']
+        date_str = data['date']
+        turnover_value = float(data['turnover_value'])
+        
+        if turnover_value <= 0:
+            return jsonify({
+                'error': 'Turnover value must be greater than 0'
+            }), 400
+        
+        # Parse date
+        try:
+            from datetime import datetime
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({
+                'error': 'Invalid date format. Use YYYY-MM-DD'
+            }), 400
+        
+        session = create_session()
+        
+        # Check if a record already exists for this pharmacy and date
+        existing_report = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy_code,
+            DailyReport.report_date == date_obj
+        ).first()
+        
+        if existing_report:
+            # Check if it already has turnover data
+            if existing_report.total_turnover_today and existing_report.total_turnover_today > 0:
+                session.close()
+                return jsonify({
+                    'error': f'Turnover data already exists for {pharmacy_code} on {date_str}'
+                }), 409
+            
+            # Update existing record
+            existing_report.total_turnover_today = turnover_value
+            session.commit()
+            message = f'Updated turnover data for {pharmacy_code} on {date_str}'
+        else:
+            # Create new record with minimal required data
+            new_report = DailyReport(
+                pharmacy_code=pharmacy_code,
+                report_date=date_obj,
+                total_turnover_today=turnover_value
+            )
+            session.add(new_report)
+            session.commit()
+            message = f'Created new turnover data for {pharmacy_code} on {date_str}'
+        
+        session.close()
+        return jsonify({
+            'success': True,
+            'message': message,
+            'pharmacy_code': pharmacy_code,
+            'date': date_str,
+            'turnover_value': turnover_value
+        })
+        
+    except ValueError:
+        return jsonify({
+            'error': 'Invalid turnover value. Must be a number.'
+        }), 400
+    except Exception as e:
+        session.close() if 'session' in locals() else None
+        return jsonify({
+            'error': f'Error adding manual turnover: {str(e)}'
+        }), 500
+
+@api_bp.route('/check_turnover/<pharmacy_code>/<date>', methods=['GET'])
+@memory_cleanup
+def check_turnover_exists(pharmacy_code, date):
+    """Check if turnover data exists for a specific pharmacy and date."""
+    try:
+        from datetime import datetime
+        date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+        
+        session = create_session()
+        
+        report = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy_code,
+            DailyReport.report_date == date_obj
+        ).first()
+        
+        has_turnover = bool(report and report.total_turnover_today and report.total_turnover_today > 0)
+        turnover_value = report.total_turnover_today if has_turnover else None
+        
+        session.close()
+        return jsonify({
+            'pharmacy_code': pharmacy_code,
+            'date': date,
+            'has_turnover': has_turnover,
+            'turnover_value': turnover_value
+        })
+        
+    except ValueError:
+        return jsonify({
+            'error': 'Invalid date format. Use YYYY-MM-DD'
+        }), 400
+    except Exception as e:
+        session.close() if 'session' in locals() else None
+        return jsonify({
+            'error': f'Error checking turnover: {str(e)}'
+        }), 500
+
 @api_bp.route('/status', methods=['GET'])
 @memory_cleanup  
 def app_status():

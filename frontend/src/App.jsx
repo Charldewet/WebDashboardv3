@@ -3,6 +3,7 @@ import DailyView from './views/DailyView';
 import MonthlyView from './views/MonthlyView';
 import YearlyView from './views/YearlyView';
 import StockView from './views/StockView';
+import AdminView from './views/AdminView';
 import './App.css';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
@@ -123,6 +124,11 @@ function App() {
   const handleMenuToggle = (event) => {
     event.stopPropagation();
     setMenuOpen(v => !v);
+  };
+
+  const handleAdminClick = () => {
+    setView('admin');
+    setMenuOpen(false);
   };
 
   return (
@@ -364,7 +370,7 @@ function App() {
               textAlign: 'left',
               paddingLeft: 18,
             }}
-            onClick={() => {}}>
+            onClick={handleAdminClick}>
               Admin
             </button>
           </div>
@@ -394,6 +400,7 @@ function App() {
         {view === 'monthly' && <MonthlyView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
         {view === 'yearly' && <YearlyView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
         {view === 'stock' && <StockView selectedPharmacy={selectedPharmacy} selectedDate={formatDate(selectedDate)} />}
+        {view === 'admin' && <AdminView selectedPharmacy={selectedPharmacy} />}
       </div>
     </div>
   );
