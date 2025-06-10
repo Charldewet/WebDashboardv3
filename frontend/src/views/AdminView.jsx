@@ -18,10 +18,10 @@ function AdminView({ selectedPharmacy }) {
   const API_BASE_URL = import.meta.env.VITE_API_URL;
   const currentYear = new Date().getFullYear();
 
-  // Calculate date range (last 90 days)
+  // Calculate date range (last 2 years)
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(endDate.getDate() - 90);
+  startDate.setFullYear(endDate.getFullYear() - 2);
 
   const formatDate = (date) => {
     if (!date) return '';
@@ -217,7 +217,7 @@ function AdminView({ selectedPharmacy }) {
         <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.9rem' }}>
           <li>Orange dates can be selected (missing turnover data)</li>
           <li>Gray dates cannot be selected (already have turnover data)</li>
-          <li>Only dates from the last 90 days are shown</li>
+          <li>Only dates from the last 2 years are shown</li>
           <li>Click on an orange date to add turnover data</li>
         </ul>
       </div>
