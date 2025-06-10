@@ -129,12 +129,23 @@ function AdminView({ selectedPharmacy }) {
   };
 
   // Create modifiers for the date picker
-  const missingDateObjects = missingDates.map(dateStr => new Date(dateStr + 'T00:00:00'));
+  const missingDateObjects = missingDates.map(dateStr => {
+    // Create date in local timezone to avoid timezone offset issues
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  });
+  
+  // Debug: log the dates for troubleshooting
+  console.log('Missing dates from API:', missingDates);
+  console.log('Missing date objects for calendar:', missingDateObjects);
+  
   const modifiers = {
     missing: missingDateObjects,
     disabled: (date) => {
       const dateStr = formatDate(date);
-      return !missingDates.includes(dateStr) || date > endDate || date < startDate;
+      const isNotMissing = !missingDates.includes(dateStr);
+      const isOutOfRange = date > endDate || date < startDate;
+      return isNotMissing || isOutOfRange;
     }
   };
 

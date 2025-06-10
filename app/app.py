@@ -770,14 +770,23 @@ def get_missing_turnover_dates(pharmacy_code, start_date, end_date):
         # Create a set of dates that have valid turnover data
         dates_with_turnover = set()
         for report in existing_reports:
-            if report.total_turnover_today and report.total_turnover_today > 0:
-                dates_with_turnover.add(report.report_date)
+            # Consider a date as having turnover only if it has a positive value
+            if report.total_turnover_today is not None and report.total_turnover_today > 0:
+                # Convert to date object for consistent comparison
+                if isinstance(report.report_date, str):
+                    report_date = datetime.strptime(report.report_date, '%Y-%m-%d').date()
+                else:
+                    report_date = report.report_date
+                dates_with_turnover.add(report_date)
         
-        # Find missing dates
+        # Find missing dates (includes dates with zero/null turnover and completely missing dates)
         missing_dates = []
         for date in all_dates:
             if date not in dates_with_turnover:
                 missing_dates.append(date.strftime('%Y-%m-%d'))
+        
+        print(f"[DEBUG] Missing turnover dates for {pharmacy_code}: {len(missing_dates)} dates")
+        print(f"[DEBUG] Sample missing dates: {missing_dates[:5]}")  # Show first 5
         
         session.close()
         return jsonify({
