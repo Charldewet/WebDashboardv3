@@ -212,17 +212,19 @@ function App() {
                 aria-label="Open calendar"
                 onClick={handleCalendarOpen}
                 style={{
-                  background: 'none',
+                  background: showCalendar ? '#FF4500' : 'none',
                   border: 'none',
                   cursor: 'pointer',
                   zIndex: 200,
-                  padding: 0,
+                  padding: showCalendar ? '4px' : 0,
                   marginRight: 5,
                   display: 'flex',
                   alignItems: 'center',
+                  borderRadius: showCalendar ? '4px' : 0,
+                  transition: 'background 0.2s, padding 0.2s',
                 }}
               >
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FF4500" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={showCalendar ? "#fff" : "#FF4500"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="5" width="18" height="16" rx="2"/>
                   <path d="M16 3v4M8 3v4M3 9h18"/>
                 </svg>
@@ -231,18 +233,20 @@ function App() {
               <button
                 aria-label="Open menu"
                 style={{
-                  background: 'none',
+                  background: menuOpen ? '#FF4500' : 'none',
                   border: 'none',
                   cursor: 'pointer',
                   zIndex: 200,
-                  padding: 0,
+                  padding: menuOpen ? '4px' : 0,
                   marginRight: 5,
                   display: 'flex',
                   alignItems: 'center',
+                  borderRadius: menuOpen ? '4px' : 0,
+                  transition: 'background 0.2s, padding 0.2s',
                 }}
                 onClick={handleMenuToggle}
               >
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FF4500" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={menuOpen ? "#fff" : "#FF4500"} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="4" y1="5" x2="20" y2="5" />
                   <line x1="4" y1="12" x2="20" y2="12" />
                   <line x1="4" y1="19" x2="20" y2="19" />
@@ -294,7 +298,7 @@ function App() {
       </div>
       {/* Calendar Popover */}
       {showCalendar && (
-        <div ref={calendarRef} style={{ position: 'fixed', top: 60, right: 32, zIndex: 20000 }}>
+        <div ref={calendarRef} style={{ position: 'fixed', top: 79, right: 32, zIndex: 20000 }}>
           <DayPicker
             mode="single"
             selected={selectedDate}
@@ -326,7 +330,7 @@ function App() {
           ref={menuRef}
           style={{
             position: 'absolute',
-            top: 60, // height of header
+            top: 79, // height of header + 5mm
             left: '2.5vw',
             width: '95vw',
             background: '#232b3b',
