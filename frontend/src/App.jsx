@@ -6,18 +6,14 @@ import StockView from './views/StockView';
 import AdminView from './views/AdminView';
 import LoginView from './views/LoginView';
 import { useAuth } from './useAuth';
+import apiClient from './api';
 import './App.css';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import './calendar.css';
 
-const PHARMACY_OPTIONS = [
-  { label: 'TLC Reitz', value: 'reitz' },
-  { label: 'TLC Villiers', value: 'villiers' },
-  { label: 'TLC Roos', value: 'roos' },
-  { label: 'TLC Tugela', value: 'tugela' },
-  { label: 'TLC Winterton', value: 'winterton' },
-];
+// Remove hardcoded pharmacies
+// const PHARMACY_OPTIONS = [ ... ];
 
 // Helper to get last day of previous month
 function getLastDayOfPreviousMonth() {
@@ -29,7 +25,8 @@ function getLastDayOfPreviousMonth() {
 function App() {
   const { token, login, logout } = useAuth();
   const [view, setView] = useState('daily');
-  const [selectedPharmacy, setSelectedPharmacy] = useState(PHARMACY_OPTIONS[0].value);
+  const [pharmacyOptions, setPharmacyOptions] = useState([]);
+  const [selectedPharmacy, setSelectedPharmacy] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(getLastDayOfPreviousMonth());
   const [displayMonth, setDisplayMonth] = useState(getLastDayOfPreviousMonth());
@@ -37,6 +34,23 @@ function App() {
   const calendarRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (token) {
+      apiClient.get('/api/pharmacies')
+        .then(response => {
+          const fetchedPharmacies = response.data || [];
+          setPharmacyOptions(fetchedPharmacies);
+          if (fetchedPharmacies.length > 0) {
+            setSelectedPharmacy(fetchedPharmacies[0].value);
+          }
+        })
+        .catch(error => {
+          console.error("Failed to fetch pharmacies:", error);
+          // Handle error, maybe show a message to the user
+        });
+    }
+  }, [token]);
 
   const currentYear = new Date().getFullYear(); // Get current year
 
@@ -76,7 +90,7 @@ function App() {
      // fontWeight is 800 from navBtnActiveStyle, color is #fff from navBtnActiveStyle
   };
 
-  const selectedPharmacyLabel = PHARMACY_OPTIONS.find(opt => opt.value === selectedPharmacy)?.label || '';
+  const selectedPharmacyLabel = pharmacyOptions.find(opt => opt.value === selectedPharmacy)?.label || '';
 
   // Collapse calendar when clicking outside
   useEffect(() => {
@@ -199,7 +213,7 @@ function App() {
                     zIndex: 100,
                     padding: '4px 0',
                   }}>
-                    {PHARMACY_OPTIONS.map(opt => (
+                    {pharmacyOptions.map(opt => (
                       <div
                         key={opt.value}
                         style={{

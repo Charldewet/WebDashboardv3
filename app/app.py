@@ -1,4 +1,4 @@
-from flask import jsonify, request, Blueprint, Flask
+from flask import jsonify, request, Blueprint, Flask, g
 from app.models import DailyReport
 from app.db import create_session, cleanup_db_sessions
 import subprocess
@@ -57,6 +57,30 @@ api_bp = Blueprint('api', __name__, url_prefix='/api')
 # Secret key for JWT
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-super-secret-key')
 
+# In-memory user store
+# In a real app, this would be in a database and passwords would be hashed
+USERS = {
+    "Charl": {
+        "password": "Koeberg7#",
+        "pharmacies": [
+            {'label': 'TLC Reitz', 'value': 'reitz'},
+            {'label': 'TLC Villiers', 'value': 'villiers'},
+            {'label': 'TLC Roos', 'value': 'roos'},
+            {'label': 'TLC Tugela', 'value': 'tugela'},
+            {'label': 'TLC Winterton', 'value': 'winterton'},
+            {'label': 'TLC Dummy 1', 'value': 'DUMMY1'},
+            {'label': 'TLC Dummy 2', 'value': 'DUMMY2'}
+        ]
+    },
+    "user": {
+        "password": "password",
+        "pharmacies": [
+            {'label': 'TLC Dummy 1', 'value': 'DUMMY1'},
+            {'label': 'TLC Dummy 2', 'value': 'DUMMY2'}
+        ]
+    }
+}
+
 # decorator for verifying the JWT
 def token_required(f):
     @wraps(f)
@@ -66,39 +90,62 @@ def token_required(f):
             token = request.headers['Authorization'].split(' ')[1]
         
         if not token:
-            return jsonify({'message' : 'Token is missing !!'}), 401
+            return jsonify({'message': 'Token is missing!'}), 401
   
         try:
-            # decoding the payload to fetch the stored details
-            data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-            # by convention, the user identity is stored in 'sub'
-            current_user = data['sub']
-        except:
-            return jsonify({
-                'message' : 'Token is invalid !!'
-            }), 401
-        
-        return  f(*args, **kwargs)
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            g.current_user = USERS.get(data['sub'])
+            if not g.current_user:
+                return jsonify({'message': 'User not found!'}), 401
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token has expired!'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': 'Token is invalid!'}), 401
+  
+        return f(*args, **kwargs)
   
     return decorated
 
+def authorize_pharmacy(f):
+    """Decorator to check if the user is allowed to access the requested pharmacy."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        pharmacy_code = request.headers.get('X-Pharmacy')
+        if not pharmacy_code:
+            return jsonify({"error": "X-Pharmacy header is required"}), 400
+        
+        allowed_pharmacy_codes = [p['value'] for p in g.current_user['pharmacies']]
+        if pharmacy_code not in allowed_pharmacy_codes:
+            return jsonify({"error": "You are not authorized to access this pharmacy"}), 403
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
 @api_bp.route('/login', methods=['POST'])
+@memory_cleanup
 def login():
     data = request.get_json()
     if not data or not data.get('username') or not data.get('password'):
         return jsonify({'message': 'Could not verify'}), 401
 
-    # For simplicity, using hardcoded credentials.
-    # In a real app, you'd look up the user in a database.
-    if data['username'] == 'Charl' and data['password'] == 'Koeberg7#':
+    user = USERS.get(data['username'])
+
+    if user and user['password'] == data['password']:
         token = jwt.encode({
             'sub': data['username'],
             'exp': datetime.utcnow() + timedelta(hours=8)
-        }, SECRET_KEY, algorithm='HS256')
-
+        }, SECRET_KEY, algorithm="HS256")
         return jsonify({'token': token})
 
-    return jsonify({'message': 'Could not verify'}), 401
+    return jsonify({'message': 'Login failed!'}), 401
+
+@api_bp.route('/pharmacies', methods=['GET'])
+@token_required
+def get_pharmacies():
+    """Returns the list of pharmacies the user is allowed to see."""
+    if not g.current_user:
+        return jsonify({"error": "User not found or not authenticated"}), 401
+    return jsonify(g.current_user['pharmacies'])
 
 @api_bp.route('/turnover', methods=['GET'])
 @token_required
@@ -116,6 +163,8 @@ def get_turnover():
 
 @api_bp.route('/turnover_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -131,6 +180,8 @@ def get_turnover_for_range(start_date, end_date):
 
 @api_bp.route('/daily_turnover_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -149,6 +200,8 @@ def get_daily_turnover_for_range(start_date, end_date):
 
 @api_bp.route('/daily_avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -170,6 +223,8 @@ def get_daily_avg_basket_for_range(start_date, end_date):
 
 @api_bp.route('/avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -196,6 +251,8 @@ def get_avg_basket_for_range(start_date, end_date):
 
 @api_bp.route('/gp_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_gp_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -221,6 +278,8 @@ def get_gp_for_range(start_date, end_date):
 
 @api_bp.route('/costs_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_costs_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -241,6 +300,8 @@ def get_costs_for_range(start_date, end_date):
 
 @api_bp.route('/transactions_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_transactions_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -261,6 +322,8 @@ def get_transactions_for_range(start_date, end_date):
 
 @api_bp.route('/dispensary_vs_total_turnover/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_dispensary_vs_total_turnover(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -283,6 +346,8 @@ def get_dispensary_vs_total_turnover(start_date, end_date):
 
 @api_bp.route('/daily_purchases_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_purchases_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -301,6 +366,8 @@ def get_daily_purchases_for_range(start_date, end_date):
 
 @api_bp.route('/daily_cost_of_sales_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_cost_of_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -319,6 +386,8 @@ def get_daily_cost_of_sales_for_range(start_date, end_date):
 
 @api_bp.route('/daily_cash_sales_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_cash_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -337,6 +406,8 @@ def get_daily_cash_sales_for_range(start_date, end_date):
 
 @api_bp.route('/daily_account_sales_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_account_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -355,6 +426,8 @@ def get_daily_account_sales_for_range(start_date, end_date):
 
 @api_bp.route('/daily_cod_sales_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_cod_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -373,6 +446,8 @@ def get_daily_cod_sales_for_range(start_date, end_date):
 
 @api_bp.route('/daily_cash_tenders_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_cash_tenders_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -391,6 +466,8 @@ def get_daily_cash_tenders_for_range(start_date, end_date):
 
 @api_bp.route('/daily_credit_card_tenders_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_credit_card_tenders_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -409,6 +486,8 @@ def get_daily_credit_card_tenders_for_range(start_date, end_date):
 
 @api_bp.route('/daily_scripts_dispensed_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_scripts_dispensed_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -427,6 +506,8 @@ def get_daily_scripts_dispensed_for_range(start_date, end_date):
 
 @api_bp.route('/daily_gp_percent_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_gp_percent_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -445,6 +526,8 @@ def get_daily_gp_percent_for_range(start_date, end_date):
 
 @api_bp.route('/daily_dispensary_percent_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_dispensary_percent_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -469,6 +552,8 @@ def get_daily_dispensary_percent_for_range(start_date, end_date):
 
 @api_bp.route('/daily_dispensary_turnover_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_daily_dispensary_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -487,6 +572,8 @@ def get_daily_dispensary_turnover_for_range(start_date, end_date):
 
 @api_bp.route('/opening_stock_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_opening_stock_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -559,6 +646,8 @@ def get_opening_stock_for_range(start_date, end_date):
 
 @api_bp.route('/stock_adjustments_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_stock_adjustments_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -577,6 +666,8 @@ def get_stock_adjustments_for_range(start_date, end_date):
 
 @api_bp.route('/closing_stock_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_closing_stock_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -600,6 +691,8 @@ def get_closing_stock_for_range(start_date, end_date):
 
 @api_bp.route('/monthly_closing_stock_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_monthly_closing_stock_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -701,6 +794,8 @@ def get_monthly_closing_stock_for_range(start_date, end_date):
 
 @api_bp.route('/turnover_ratio_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_turnover_ratio_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -760,6 +855,8 @@ def get_turnover_ratio_for_range(start_date, end_date):
 
 @api_bp.route('/days_of_inventory_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
+@authorize_pharmacy
+@memory_cleanup
 def get_days_of_inventory_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
