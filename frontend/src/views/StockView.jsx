@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import apiClient from '../api'; // Import the new api client
 import { PieChart, Pie, Cell, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 // Custom Tooltip for Monthly Inventory Chart
@@ -95,7 +95,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
     const currentDateStr = selectedDate; // Use selected date as end date
 
     // Fetch Opening stock for the month
-    axios.get(`${API_BASE_URL}/api/opening_stock_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+    apiClient.get(`/api/opening_stock_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -109,7 +109,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch monthly purchases
-    axios.get(`${API_BASE_URL}/api/costs_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+    apiClient.get(`/api/costs_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -123,7 +123,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch monthly stock adjustments
-    axios.get(`${API_BASE_URL}/api/stock_adjustments_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+    apiClient.get(`/api/stock_adjustments_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -138,10 +138,10 @@ function StockView({ selectedPharmacy, selectedDate }) {
 
     // Fetch cost of sales and closing stock for the month
     Promise.all([
-      axios.get(`${API_BASE_URL}/api/costs_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+      apiClient.get(`/api/costs_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
         headers: { 'X-Pharmacy': selectedPharmacy }
       }),
-      axios.get(`${API_BASE_URL}/api/closing_stock_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+      apiClient.get(`/api/closing_stock_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
         headers: { 'X-Pharmacy': selectedPharmacy }
       })
     ])
@@ -159,7 +159,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch turnover ratio for the month
-    axios.get(`${API_BASE_URL}/api/turnover_ratio_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+    apiClient.get(`/api/turnover_ratio_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -173,7 +173,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch days of inventory for the month
-    axios.get(`${API_BASE_URL}/api/days_of_inventory_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
+    apiClient.get(`/api/days_of_inventory_for_range/${firstDayOfMonthStr}/${currentDateStr}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -203,7 +203,7 @@ function StockView({ selectedPharmacy, selectedDate }) {
     const chartEndDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${new Date(currentYear, currentMonth, 0).getDate()}`;
 
     // Fetch 12-month inventory data
-    axios.get(`${API_BASE_URL}/api/monthly_closing_stock_for_range/${chartStartDate}/${chartEndDate}`, {
+    apiClient.get(`/api/monthly_closing_stock_for_range/${chartStartDate}/${chartEndDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {

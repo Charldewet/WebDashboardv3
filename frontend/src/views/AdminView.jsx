@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import apiClient from '../api'; // Import the new api client
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 
@@ -41,13 +42,12 @@ function AdminView({ selectedPharmacy }) {
     const startDateStr = formatDate(startDate);
     const endDateStr = formatDate(endDate);
 
-    fetch(`${API_BASE_URL}/api/missing_turnover_dates/${selectedPharmacy}/${startDateStr}/${endDateStr}`)
-      .then(response => response.json())
-      .then(data => {
-        if (data.error) {
-          setErrorMissingDates(data.error);
+    apiClient.get(`/api/missing_turnover_dates/${selectedPharmacy}/${startDateStr}/${endDateStr}`)
+      .then(res => {
+        if (res.data.error) {
+          setErrorMissingDates(res.data.error);
         } else {
-          setMissingDates(data.missing_dates || []);
+          setMissingDates(res.data.missing_dates || []);
         }
         setLoadingMissingDates(false);
       })
@@ -56,7 +56,7 @@ function AdminView({ selectedPharmacy }) {
         setLoadingMissingDates(false);
         console.error('Error fetching missing dates:', error);
       });
-  }, [selectedPharmacy, API_BASE_URL]);
+  }, [selectedPharmacy]);
 
   // Handle date selection
   const handleDateSelect = (date) => {
@@ -95,21 +95,15 @@ function AdminView({ selectedPharmacy }) {
     setSubmitError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/manual_turnover`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pharmacy_code: selectedPharmacy,
-          date: formatDate(selectedDate),
-          turnover_value: value
-        })
+      const response = await apiClient.post(`/api/manual_turnover`, {
+        pharmacy_code: selectedPharmacy,
+        date: formatDate(selectedDate),
+        turnover_value: value
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok && data.success) {
+      if (response.status === 200 && data.success) {
         setSubmitSuccess(`Successfully added turnover data: R${value.toLocaleString()}`);
         // Remove the date from missing dates
         setMissingDates(prev => prev.filter(date => date !== formatDate(selectedDate)));

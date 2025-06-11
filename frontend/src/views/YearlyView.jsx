@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import apiClient from '../api';
 import { LineChart, Line, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Label, ComposedChart, XAxis, YAxis, BarChart, Bar, Legend } from 'recharts';
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
@@ -154,7 +154,6 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
   const [monthlyGpPercentData, setMonthlyGpPercentData] = useState([]);
   const [loadingMonthlyGpPercent, setLoadingMonthlyGpPercent] = useState(true);
   const [errorMonthlyGpPercent, setErrorMonthlyGpPercent] = useState(null);
-  const API_BASE_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     console.log('[YearlyView] useEffect triggered. Selected Pharmacy:', selectedPharmacy, 'Selected Date:', selectedDate);
@@ -206,7 +205,7 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
     const firstDayPreviousYear = `${previousYearNum}-01-01`;
     const lastDayPreviousYearPeriodObj = new Date(previousYearNum, dateObj.getMonth(), dateObj.getDate());
     const lastDayPreviousYearPeriod = `${lastDayPreviousYearPeriodObj.getFullYear()}-${(lastDayPreviousYearPeriodObj.getMonth() + 1).toString().padStart(2, '0')}-${lastDayPreviousYearPeriodObj.getDate().toString().padStart(2, '0')}`;
-    axios.get(`${API_BASE_URL}/api/turnover_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/turnover_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -222,7 +221,7 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
         setMtdTurnover(0);
         setLoadingKpi(false);
       });
-    axios.get(`${API_BASE_URL}/api/avg_basket_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/avg_basket_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -238,7 +237,7 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
         setAvgBasket({ value: 0, size: 0 });
         setLoadingAvgBasket(false);
       });
-    axios.get(`${API_BASE_URL}/api/gp_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/gp_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -254,7 +253,7 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
         setGpStats({ percent: 0, value: 0 });
         setLoadingGpStats(false);
       });
-    axios.get(`${API_BASE_URL}/api/costs_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/costs_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -270,7 +269,7 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
         setCostStats({ cost: 0, purchases: 0 });
         setLoadingCostStats(false);
       });
-    axios.get(`${API_BASE_URL}/api/transactions_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/transactions_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -286,7 +285,7 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
         setTransStats({ transactions: 0, scripts: 0 });
         setLoadingTransStats(false);
       });
-    axios.get(`${API_BASE_URL}/api/dispensary_vs_total_turnover/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/dispensary_vs_total_turnover/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -304,15 +303,15 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch data for overlaid chart (YTD cumulative)
-    const currentYearURL = `${API_BASE_URL}/api/daily_turnover_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`;
-    const previousYearURL = `${API_BASE_URL}/api/daily_turnover_for_range/${firstDayPreviousYear}/${lastDayPreviousYearPeriod}`;
+    const currentYearURL = `/api/daily_turnover_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`;
+    const previousYearURL = `/api/daily_turnover_for_range/${firstDayPreviousYear}/${lastDayPreviousYearPeriod}`;
     console.log('[YearlyView] Fetching current year chart data from:', currentYearURL);
     console.log('[YearlyView] Fetching previous year chart data from:', previousYearURL);
 
-    const fetchCurrentYearChartData = axios.get(currentYearURL, {
+    const fetchCurrentYearChartData = apiClient.get(currentYearURL, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     });
-    const fetchPreviousYearChartData = axios.get(previousYearURL, {
+    const fetchPreviousYearChartData = apiClient.get(previousYearURL, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     });
 
@@ -405,8 +404,8 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
     const lastMonth = dateObj.getMonth(); // 0-based, so May=4
     // --- Purchases & Cost of Sales (Cumulative per month) ---
     Promise.all([
-      axios.get(`${API_BASE_URL}/api/daily_purchases_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
-      axios.get(`${API_BASE_URL}/api/daily_cost_of_sales_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
+      apiClient.get(`/api/daily_purchases_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
+      apiClient.get(`/api/daily_cost_of_sales_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
     ]).then(([purchasesRes, costRes]) => {
       const dailyPurchases = purchasesRes.data?.daily_purchases || [];
       const dailyCost = costRes.data?.daily_cost_of_sales || [];
@@ -444,8 +443,8 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
     });
     // --- Turnover Bar (per month, not cumulative) & Avg Basket Value (average per month) ---
     Promise.all([
-      axios.get(`${API_BASE_URL}/api/daily_turnover_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
-      axios.get(`${API_BASE_URL}/api/daily_avg_basket_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
+      apiClient.get(`/api/daily_turnover_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
+      apiClient.get(`/api/daily_avg_basket_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
     ]).then(([turnoverRes, basketRes]) => {
       const dailyTurnover = turnoverRes.data?.daily_turnover || [];
       const dailyBasket = basketRes.data?.daily_avg_basket || [];
@@ -482,9 +481,9 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
     });
     // --- Cash, Account, COD Sales (cumulative per month) ---
     Promise.all([
-      axios.get(`${API_BASE_URL}/api/daily_cash_sales_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
-      axios.get(`${API_BASE_URL}/api/daily_account_sales_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
-      axios.get(`${API_BASE_URL}/api/daily_cod_sales_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
+      apiClient.get(`/api/daily_cash_sales_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
+      apiClient.get(`/api/daily_account_sales_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
+      apiClient.get(`/api/daily_cod_sales_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
     ]).then(([cashRes, accountRes, codRes]) => {
       const dailyCash = cashRes.data?.daily_cash_sales || [];
       const dailyAccount = accountRes.data?.daily_account_sales || [];
@@ -536,8 +535,8 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
     });
     // --- Tender Pie (Cash/Card, total for each type) ---
     Promise.all([
-      axios.get(`${API_BASE_URL}/api/daily_cash_tenders_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
-      axios.get(`${API_BASE_URL}/api/daily_credit_card_tenders_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
+      apiClient.get(`/api/daily_cash_tenders_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
+      apiClient.get(`/api/daily_credit_card_tenders_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
     ]).then(([cashRes, cardRes]) => {
       const dailyCash = cashRes.data?.daily_cash_tenders || [];
       const dailyCard = cardRes.data?.daily_credit_card_tenders || [];
@@ -558,7 +557,7 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
       setLoadingMonthlyTenderPie(false);
     });
     // --- Scripts Dispensed (sum per month, divided by 100) ---
-    axios.get(`${API_BASE_URL}/api/daily_scripts_dispensed_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
+    apiClient.get(`/api/daily_scripts_dispensed_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
       .then(res => {
         const daily = res.data?.daily_scripts_dispensed || [];
         let scriptsByMonth = Array(12).fill(0);
@@ -578,7 +577,7 @@ function YearlyView({ selectedPharmacy, selectedDate }) {
         setLoadingMonthlyScriptsDispensed(false);
       });
     // --- GP Percent (average per month) ---
-    axios.get(`${API_BASE_URL}/api/daily_gp_percent_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
+    apiClient.get(`/api/daily_gp_percent_for_range/${firstDayCurrentYear}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
       .then(res => {
         const daily = res.data?.daily_gp_percent || [];
         let gpSumByMonth = Array(12).fill(0);

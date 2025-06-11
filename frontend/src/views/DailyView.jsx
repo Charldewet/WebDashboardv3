@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import apiClient from '../api'; // Import the new api client
 import { PieChart, Pie, Cell, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 // Custom Tooltip for Composed Chart
@@ -132,7 +132,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
     const singleDate = selectedDate; // Use selectedDate for both start and end
 
     // Fetch Daily turnover for KPI card
-    axios.get(`${API_BASE_URL}/api/turnover_for_range/${singleDate}/${singleDate}`, {
+    apiClient.get(`/api/turnover_for_range/${singleDate}/${singleDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -146,7 +146,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch avg basket value/size
-    axios.get(`${API_BASE_URL}/api/avg_basket_for_range/${singleDate}/${singleDate}`, {
+    apiClient.get(`/api/avg_basket_for_range/${singleDate}/${singleDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -160,7 +160,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch GP stats
-    axios.get(`${API_BASE_URL}/api/gp_for_range/${singleDate}/${singleDate}`, {
+    apiClient.get(`/api/gp_for_range/${singleDate}/${singleDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -175,7 +175,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch cost of sales and purchases
-    axios.get(`${API_BASE_URL}/api/costs_for_range/${singleDate}/${singleDate}`, {
+    apiClient.get(`/api/costs_for_range/${singleDate}/${singleDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -189,7 +189,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch total transactions and scripts
-    axios.get(`${API_BASE_URL}/api/transactions_for_range/${singleDate}/${singleDate}`, {
+    apiClient.get(`/api/transactions_for_range/${singleDate}/${singleDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -203,7 +203,7 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch dispensary vs total turnover
-    axios.get(`${API_BASE_URL}/api/dispensary_vs_total_turnover/${singleDate}/${singleDate}`, {
+    apiClient.get(`/api/dispensary_vs_total_turnover/${singleDate}/${singleDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -231,10 +231,10 @@ function DailyView({ selectedPharmacy, selectedDate }) {
     const apiStartDate = formatDateForAPI(startDateForChart);
     const apiEndDate = singleDate; // already in YYYY-MM-DD format
 
-    const fetchTurnover = axios.get(`${API_BASE_URL}/api/daily_turnover_for_range/${apiStartDate}/${apiEndDate}`, {
+    const fetchTurnover = apiClient.get(`/api/daily_turnover_for_range/${apiStartDate}/${apiEndDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     });
-    const fetchAvgBasket = axios.get(`${API_BASE_URL}/api/daily_avg_basket_for_range/${apiStartDate}/${apiEndDate}`, {
+    const fetchAvgBasket = apiClient.get(`/api/daily_avg_basket_for_range/${apiStartDate}/${apiEndDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     });
 
@@ -328,11 +328,11 @@ function DailyView({ selectedPharmacy, selectedDate }) {
     const correspondingDayLastYear = getCorrespondingDayLastYear(singleDate);
 
     // Fetch current year and last year data for comparison
-    const fetchCurrentYearData = axios.get(`${API_BASE_URL}/api/turnover_for_range/${singleDate}/${singleDate}`, {
+    const fetchCurrentYearData = apiClient.get(`/api/turnover_for_range/${singleDate}/${singleDate}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     });
 
-    const fetchLastYearData = axios.get(`${API_BASE_URL}/api/turnover_for_range/${correspondingDayLastYear}/${correspondingDayLastYear}`, {
+    const fetchLastYearData = apiClient.get(`/api/turnover_for_range/${correspondingDayLastYear}/${correspondingDayLastYear}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     });
 
