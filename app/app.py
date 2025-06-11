@@ -300,13 +300,13 @@ def get_transactions_for_range(start_date, end_date):
         DailyReport.report_date <= end_date
     )
     reports = query.all()
-    total_transactions = sum(r.pos_turnover_trans_today for r in reports if r.pos_turnover_trans_today)
+    total_transactions = sum(r.sales_total_trans_today for r in reports if r.sales_total_trans_today)
     total_scripts = sum(r.scripts_dispensed_today for r in reports if r.scripts_dispensed_today)
     session.close()
     return jsonify({
         'pharmacy': pharmacy,
         'total_transactions': int(total_transactions),
-        'total_scripts': round(total_scripts / 100, 2)
+        'total_scripts': int(total_scripts)
     })
 
 @api_bp.route('/dispensary_vs_total_turnover/<start_date>/<end_date>', methods=['GET'])
