@@ -90,7 +90,7 @@ def login():
 
     # For simplicity, using hardcoded credentials.
     # In a real app, you'd look up the user in a database.
-    if data['username'] == 'admin' and data['password'] == 'password':
+    if data['username'] == 'Charl' and data['password'] == 'Koeberg7#':
         token = jwt.encode({
             'sub': data['username'],
             'exp': datetime.utcnow() + timedelta(hours=8)
