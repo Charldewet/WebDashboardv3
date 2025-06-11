@@ -1,52 +1,47 @@
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import DailyScreen from '../screens (IGNORE THESE)/DailyScreen';
-import MonthlyScreen from '../screens (IGNORE THESE)/MonthlyScreen';
-import YearlyScreen from '../screens (IGNORE THESE)/YearlyScreen';
-import StockScreen from '../screens (IGNORE THESE)/StockScreen';
-import { theme } from '../theme'; // Import your theme
+import React, { useState } from 'react';
+import { theme } from '../theme';
 
-// You might want to import icons here, e.g., from @expo/vector-icons
-// import { Ionicons } from '@expo/vector-icons'; 
+// Placeholder components for the screens
+const DailyScreen = () => <div className="p-4">Daily Screen Content</div>;
+const MonthlyScreen = () => <div className="p-4">Monthly Screen Content</div>;
+const YearlyScreen = () => <div className="p-4">Yearly Screen Content</div>;
+const StockScreen = () => <div className="p-4">Stock Screen Content</div>;
 
-const Tab = createBottomTabNavigator();
+const screens = [
+  { name: 'Daily', component: DailyScreen },
+  { name: 'Monthly', component: MonthlyScreen },
+  { name: 'Yearly', component: YearlyScreen },
+  { name: 'Stock', component: StockScreen },
+];
 
 export default function BottomTabs() {
+  const [activeTab, setActiveTab] = useState('Daily');
+  const ActiveComponent = screens.find(screen => screen.name === activeTab)?.component || DailyScreen;
+
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarActiveTintColor: theme.avocado, // Active tab color
-        tabBarInactiveTintColor: theme.textDark, // Inactive tab color
-        tabBarStyle: {
-          backgroundColor: theme.cream, // Background color of the tab bar
-          // borderTopColor: theme.clayRed, // Optional: border color
-        },
-        headerStyle: {
-          backgroundColor: theme.cream, // Background color of the header
-        },
-        headerTintColor: theme.textDark, // Color of header text and icons
-        headerTitleStyle: {
-          // fontWeight: 'bold', // Optional: if you want bold titles
-        },
-        // tabBarIcon: ({ focused, color, size }) => {
-        //   let iconName;
-        //   if (route.name === 'Daily') {
-        //     iconName = focused ? 'ios-today' : 'ios-today-outline';
-        //   } else if (route.name === 'Monthly') {
-        //     iconName = focused ? 'ios-calendar' : 'ios-calendar-outline';
-        //   } else if (route.name === 'Yearly') {
-        //     iconName = focused ? 'ios-analytics' : 'ios-analytics-outline';
-        //   } else if (route.name === 'Stock') {
-        //     iconName = focused ? 'ios-cube' : 'ios-cube-outline';
-        //   }
-        //   // return <Ionicons name={iconName} size={size} color={color} />;
-        // },
-      })}
-    >
-      <Tab.Screen name="Daily" component={DailyScreen} />
-      <Tab.Screen name="Monthly" component={MonthlyScreen} />
-      <Tab.Screen name="Yearly" component={YearlyScreen} />
-      <Tab.Screen name="Stock" component={StockScreen} />
-    </Tab.Navigator>
+    <div className="flex flex-col h-full">
+      <div className="flex-grow">
+        <ActiveComponent />
+      </div>
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+        <div className="max-w-screen-xl mx-auto px-4">
+          <div className="flex justify-around">
+            {screens.map((screen) => (
+              <button
+                key={screen.name}
+                onClick={() => setActiveTab(screen.name)}
+                className={`flex flex-col items-center py-2 px-4 ${
+                  activeTab === screen.name
+                    ? 'text-green-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <span className="text-sm font-medium">{screen.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
+    </div>
   );
 } 

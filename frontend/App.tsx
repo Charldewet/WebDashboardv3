@@ -1,20 +1,37 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { Login } from './src/components/Login';
 import BottomTabs from './navigation/BottomTabs';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import { theme } from './theme';
-import 'nativewind/types.d'; // For NativeWind type support
+
+function AppContent() {
+  const { isAuthenticated, logout } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="absolute top-4 right-4 z-50">
+        <button
+          onClick={logout}
+          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+        >
+          Logout
+        </button>
+      </div>
+      <main className="container mx-auto px-4 py-8">
+        <BottomTabs />
+      </main>
+    </div>
+  );
+}
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.cream /* Apply cream background to SafeAreaView */ }}>
-          <StatusBar style="dark" backgroundColor={theme.cream} />
-          <BottomTabs />
-        </SafeAreaView>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 } 
