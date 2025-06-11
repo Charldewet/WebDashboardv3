@@ -6,6 +6,7 @@ gunicorn
 beautifulsoup4
 psutil
 PyJWT
+Faker
 
 # Add other dependencies here as your project grows, for example:
 # beautifulsoup4>=4.9.3 # For HTML parsing if you choose to use it
