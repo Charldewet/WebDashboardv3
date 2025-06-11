@@ -103,7 +103,8 @@ def authorize_pharmacy(f):
         if not pharmacy_code:
             return jsonify({"error": "X-Pharmacy header is required"}), 400
         
-        allowed_pharmacy_codes = [p['value'] for p in g.current_user['pharmacies']]
+        # Correctly get the list of allowed pharmacy codes
+        allowed_pharmacy_codes = g.current_user['pharmacies']
         if pharmacy_code not in allowed_pharmacy_codes:
             return jsonify({"error": "You are not authorized to access this pharmacy"}), 403
             
