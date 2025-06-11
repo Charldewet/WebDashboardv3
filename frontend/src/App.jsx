@@ -40,9 +40,16 @@ function App() {
       apiClient.get('/api/pharmacies')
         .then(response => {
           const fetchedPharmacies = response.data || [];
-          setPharmacyOptions(fetchedPharmacies);
-          if (fetchedPharmacies.length > 0) {
-            setSelectedPharmacy(fetchedPharmacies[0].value);
+          // Transform the array of strings into an array of objects
+          const formattedPharmacies = fetchedPharmacies.map(pharmacyValue => ({
+            value: pharmacyValue,
+            label: `TLC ${pharmacyValue.charAt(0).toUpperCase() + pharmacyValue.slice(1)}`
+          }));
+          
+          setPharmacyOptions(formattedPharmacies);
+          
+          if (formattedPharmacies.length > 0) {
+            setSelectedPharmacy(formattedPharmacies[0].value);
           }
         })
         .catch(error => {
