@@ -10,6 +10,8 @@ from flask_cors import CORS
 import datetime
 import gc
 from functools import wraps
+import jwt
+from datetime import datetime, timedelta
 
 # Memory optimization at startup
 def optimize_memory():
@@ -52,7 +54,54 @@ print(f"[Startup] Application started with {startup_memory:.2f} MB memory usage"
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
+# Secret key for JWT
+SECRET_KEY = os.environ.get('SECRET_KEY', 'your-super-secret-key')
+
+# decorator for verifying the JWT
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            token = request.headers['Authorization'].split(' ')[1]
+        
+        if not token:
+            return jsonify({'message' : 'Token is missing !!'}), 401
+  
+        try:
+            # decoding the payload to fetch the stored details
+            data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            # by convention, the user identity is stored in 'sub'
+            current_user = data['sub']
+        except:
+            return jsonify({
+                'message' : 'Token is invalid !!'
+            }), 401
+        
+        return  f(*args, **kwargs)
+  
+    return decorated
+
+@api_bp.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    if not data or not data.get('username') or not data.get('password'):
+        return jsonify({'message': 'Could not verify'}), 401
+
+    # For simplicity, using hardcoded credentials.
+    # In a real app, you'd look up the user in a database.
+    if data['username'] == 'admin' and data['password'] == 'password':
+        token = jwt.encode({
+            'sub': data['username'],
+            'exp': datetime.utcnow() + timedelta(hours=8)
+        }, SECRET_KEY, algorithm='HS256')
+
+        return jsonify({'token': token})
+
+    return jsonify({'message': 'Could not verify'}), 401
+
 @api_bp.route('/turnover', methods=['GET'])
+@token_required
 def get_turnover():
     pharmacy = request.args.get('pharmacy')
     date = request.args.get('date')  # Optionally filter by date
@@ -66,6 +115,7 @@ def get_turnover():
     return jsonify({'pharmacy': pharmacy, 'turnover': turnover})
 
 @api_bp.route('/turnover_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -80,6 +130,7 @@ def get_turnover_for_range(start_date, end_date):
     return jsonify({'pharmacy': pharmacy, 'turnover': turnover})
 
 @api_bp.route('/daily_turnover_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -97,6 +148,7 @@ def get_daily_turnover_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_turnover": daily_turnover})
 
 @api_bp.route('/daily_avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -117,6 +169,7 @@ def get_daily_avg_basket_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_avg_basket": daily_avg_basket})
 
 @api_bp.route('/avg_basket_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_avg_basket_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -142,6 +195,7 @@ def get_avg_basket_for_range(start_date, end_date):
     })
 
 @api_bp.route('/gp_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_gp_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -166,6 +220,7 @@ def get_gp_for_range(start_date, end_date):
     })
 
 @api_bp.route('/costs_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_costs_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -185,6 +240,7 @@ def get_costs_for_range(start_date, end_date):
     })
 
 @api_bp.route('/transactions_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_transactions_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -204,6 +260,7 @@ def get_transactions_for_range(start_date, end_date):
     })
 
 @api_bp.route('/dispensary_vs_total_turnover/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_dispensary_vs_total_turnover(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -225,6 +282,7 @@ def get_dispensary_vs_total_turnover(start_date, end_date):
     })
 
 @api_bp.route('/daily_purchases_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_purchases_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -242,6 +300,7 @@ def get_daily_purchases_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_purchases": daily_purchases})
 
 @api_bp.route('/daily_cost_of_sales_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_cost_of_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -259,6 +318,7 @@ def get_daily_cost_of_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_cost_of_sales": daily_cost_of_sales})
 
 @api_bp.route('/daily_cash_sales_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_cash_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -276,6 +336,7 @@ def get_daily_cash_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_cash_sales": daily_cash_sales})
 
 @api_bp.route('/daily_account_sales_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_account_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -293,6 +354,7 @@ def get_daily_account_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_account_sales": daily_account_sales})
 
 @api_bp.route('/daily_cod_sales_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_cod_sales_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -310,6 +372,7 @@ def get_daily_cod_sales_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_cod_sales": daily_cod_sales})
 
 @api_bp.route('/daily_cash_tenders_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_cash_tenders_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -324,9 +387,10 @@ def get_daily_cash_tenders_for_range(start_date, end_date):
         for r in reports
     ]
     session.close()
-    return jsonify({"daily_cash_tenders": daily_cash_tenders, "pharmacy": pharmacy})
+    return jsonify({"pharmacy": pharmacy, "daily_cash_tenders": daily_cash_tenders})
 
 @api_bp.route('/daily_credit_card_tenders_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_credit_card_tenders_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -341,9 +405,10 @@ def get_daily_credit_card_tenders_for_range(start_date, end_date):
         for r in reports
     ]
     session.close()
-    return jsonify({"daily_credit_card_tenders": daily_credit_card_tenders, "pharmacy": pharmacy})
+    return jsonify({"pharmacy": pharmacy, "daily_credit_card_tenders": daily_credit_card_tenders})
 
 @api_bp.route('/daily_scripts_dispensed_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_scripts_dispensed_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -361,6 +426,7 @@ def get_daily_scripts_dispensed_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_scripts_dispensed": daily_scripts})
 
 @api_bp.route('/daily_gp_percent_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_gp_percent_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -378,6 +444,7 @@ def get_daily_gp_percent_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_gp_percent": daily_gp_percent})
 
 @api_bp.route('/daily_dispensary_percent_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_dispensary_percent_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -401,6 +468,7 @@ def get_daily_dispensary_percent_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_dispensary_percent": daily_dispensary_percent})
 
 @api_bp.route('/daily_dispensary_turnover_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_daily_dispensary_turnover_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -418,6 +486,7 @@ def get_daily_dispensary_turnover_for_range(start_date, end_date):
     return jsonify({"pharmacy": pharmacy, "daily_dispensary_turnover": daily_dispensary_turnover})
 
 @api_bp.route('/opening_stock_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_opening_stock_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -489,6 +558,7 @@ def get_opening_stock_for_range(start_date, end_date):
         }), 500
 
 @api_bp.route('/stock_adjustments_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_stock_adjustments_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -506,6 +576,7 @@ def get_stock_adjustments_for_range(start_date, end_date):
     })
 
 @api_bp.route('/closing_stock_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_closing_stock_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -528,6 +599,7 @@ def get_closing_stock_for_range(start_date, end_date):
     })
 
 @api_bp.route('/monthly_closing_stock_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_monthly_closing_stock_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -628,6 +700,7 @@ def get_monthly_closing_stock_for_range(start_date, end_date):
         }), 500
 
 @api_bp.route('/turnover_ratio_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_turnover_ratio_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -686,6 +759,7 @@ def get_turnover_ratio_for_range(start_date, end_date):
         }), 500
 
 @api_bp.route('/days_of_inventory_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
 def get_days_of_inventory_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -741,6 +815,7 @@ def get_days_of_inventory_for_range(start_date, end_date):
         }), 500
 
 @api_bp.route('/missing_turnover_dates/<pharmacy_code>/<start_date>/<end_date>', methods=['GET'])
+@token_required
 @memory_cleanup
 def get_missing_turnover_dates(pharmacy_code, start_date, end_date):
     """Get dates in the specified range that have no turnover data for the given pharmacy."""
@@ -802,6 +877,7 @@ def get_missing_turnover_dates(pharmacy_code, start_date, end_date):
         }), 500
 
 @api_bp.route('/manual_turnover', methods=['POST'])
+@token_required
 @memory_cleanup
 def add_manual_turnover():
     """Add manual turnover data for a specific pharmacy and date."""
@@ -882,6 +958,7 @@ def add_manual_turnover():
         }), 500
 
 @api_bp.route('/check_turnover/<pharmacy_code>/<date>', methods=['GET'])
+@token_required
 @memory_cleanup
 def check_turnover_exists(pharmacy_code, date):
     """Check if turnover data exists for a specific pharmacy and date."""
@@ -918,6 +995,7 @@ def check_turnover_exists(pharmacy_code, date):
         }), 500
 
 @api_bp.route('/status', methods=['GET'])
+@token_required
 @memory_cleanup  
 def app_status():
     """Get application status including periodic fetch info."""
@@ -930,7 +1008,7 @@ def app_status():
         
         return jsonify({
             "status": "running",
-            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat(),
             "memory_mb": round(memory_usage, 2),
             "thread_count": thread_count,
             "periodic_fetch_enabled": os.environ.get("RENDER") == "true",
@@ -969,7 +1047,7 @@ def health_check():
         
         return jsonify({
             "status": "healthy",
-            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat(),
             "memory": {
                 "usage_mb": round(memory_usage, 2),
                 "usage_percent": round(memory_percent, 2),
@@ -982,11 +1060,12 @@ def health_check():
     except Exception as e:
         return jsonify({
             "status": "unhealthy",
-            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat(),
             "error": str(e)
         }), 500
 
 @api_bp.route('/force_update', methods=['POST'])
+@token_required
 def force_update():
     print("=== /api/force_update called ===", flush=True)
     

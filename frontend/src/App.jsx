@@ -4,6 +4,8 @@ import MonthlyView from './views/MonthlyView';
 import YearlyView from './views/YearlyView';
 import StockView from './views/StockView';
 import AdminView from './views/AdminView';
+import LoginView from './views/LoginView';
+import { useAuth } from './useAuth';
 import './App.css';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
@@ -25,6 +27,7 @@ function getLastDayOfPreviousMonth() {
 }
 
 function App() {
+  const { token, login, logout } = useAuth();
   const [view, setView] = useState('daily');
   const [selectedPharmacy, setSelectedPharmacy] = useState(PHARMACY_OPTIONS[0].value);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -130,6 +133,15 @@ function App() {
     setView('admin');
     setMenuOpen(false);
   };
+
+  const handleLogout = () => {
+    logout();
+    setMenuOpen(false);
+  };
+
+  if (!token) {
+    return <LoginView onLogin={login} />;
+  }
 
   return (
     <div className="dashboard-container" style={{ position: 'relative', minHeight: '100vh', padding: '2rem 0' }}>
@@ -389,7 +401,7 @@ function App() {
             textAlign: 'left',
             paddingLeft: 18,
           }}
-          onClick={() => {}}>
+          onClick={handleLogout}>
             Logout
           </button>
         </div>
