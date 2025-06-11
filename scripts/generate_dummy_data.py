@@ -14,8 +14,13 @@ fake = Faker()
 
 def generate_data_for_pharmacy(session, pharmacy_code, base_turnover):
     """
-    Generates two years of dummy data for a single pharmacy.
+    Generates two years of dummy data for a single pharmacy, overwriting any existing data.
     """
+    # Delete existing data for this pharmacy
+    print(f"Deleting existing data for {pharmacy_code}...")
+    session.query(DailyReport).filter_by(pharmacy_code=pharmacy_code).delete(synchronize_session=False)
+    print("Deletion complete.")
+
     print(f"Generating data for {pharmacy_code}...")
     today = date.today()
     start_date = today - timedelta(days=365 * 2)
@@ -33,10 +38,10 @@ def generate_data_for_pharmacy(session, pharmacy_code, base_turnover):
         if current_date.weekday() == 6:
             continue
 
-        # Check if data already exists
-        exists = session.query(DailyReport).filter_by(pharmacy_code=pharmacy_code, report_date=current_date).first()
-        if exists:
-            continue
+        # Check if data already exists - REMOVED as we delete all data at the start
+        # exists = session.query(DailyReport).filter_by(pharmacy_code=pharmacy_code, report_date=current_date).first()
+        # if exists:
+        #     continue
             
         # Seasonal and weekly variation
         month = current_date.month
