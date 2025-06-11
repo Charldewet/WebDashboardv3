@@ -33,35 +33,42 @@ function LoginView({ onLogin }) {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#111827' }}>
-      <div style={{ width: 300, padding: 20, background: '#232b3b', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}>
-        <h2 style={{ color: '#fff', textAlign: 'center' }}>Login</h2>
+      <div style={{ width: 320, padding: '2rem', background: '#232b3b', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', boxSizing: 'border-box' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <img
+            src="/the-local-choice-logo.png"
+            alt="Pharmacy Logo"
+            style={{ height: 50, width: 'auto' }}
+          />
+        </div>
+        <h2 style={{ color: '#fff', textAlign: 'center', marginBottom: '2rem', fontSize: '2rem' }}>Login</h2>
         <form onSubmit={handleLogin}>
-          <div style={{ marginBottom: 15 }}>
-            <label htmlFor="username" style={{ color: '#bdbdbd' }}>Username</label>
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label htmlFor="username" style={{ color: '#bdbdbd', display: 'block', marginBottom: '0.5rem' }}>Username</label>
             <input
               type="text"
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              style={{ width: '100%', padding: 8, background: '#374151', border: 'none', borderRadius: 4, color: '#fff', marginTop: 5 }}
+              style={{ width: '100%', padding: '0.75rem 1rem', background: '#374151', border: '1px solid #4B5563', borderRadius: 8, color: '#fff', boxSizing: 'border-box' }}
               required
             />
           </div>
-          <div style={{ marginBottom: 15 }}>
-            <label htmlFor="password" style={{ color: '#bdbdbd' }}>Password</label>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label htmlFor="password" style={{ color: '#bdbdbd', display: 'block', marginBottom: '0.5rem' }}>Password</label>
             <input
               type="password"
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: 8, background: '#374151', border: 'none', borderRadius: 4, color: '#fff', marginTop: 5 }}
+              style={{ width: '100%', padding: '0.75rem 1rem', background: '#374151', border: '1px solid #4B5563', borderRadius: 8, color: '#fff', boxSizing: 'border-box' }}
               required
             />
           </div>
-          {error && <p style={{ color: '#FF4444', textAlign: 'center' }}>{error}</p>}
+          {error && <p style={{ color: '#EF4444', textAlign: 'center', marginBottom: '1.5rem' }}>{error}</p>}
           <button
             type="submit"
-            style={{ width: '100%', padding: 10, background: '#FF4500', border: 'none', borderRadius: 4, color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+            style={{ width: '100%', padding: '0.8rem 1rem', background: '#FF4500', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', transition: 'background 0.2s' }}
           >
             Login
           </button>
