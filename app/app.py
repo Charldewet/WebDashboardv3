@@ -55,29 +55,18 @@ print(f"[Startup] Application started with {startup_memory:.2f} MB memory usage"
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
 # Secret key for JWT
-SECRET_KEY = os.environ.get('SECRET_KEY', 'your-super-secret-key')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'your_default_secret_key')
 
 # In-memory user store
 # In a real app, this would be in a database and passwords would be hashed
 USERS = {
     "Charl": {
         "password": "Koeberg7#",
-        "pharmacies": [
-            {'label': 'TLC Reitz', 'value': 'reitz'},
-            {'label': 'TLC Villiers', 'value': 'villiers'},
-            {'label': 'TLC Roos', 'value': 'roos'},
-            {'label': 'TLC Tugela', 'value': 'tugela'},
-            {'label': 'TLC Winterton', 'value': 'winterton'},
-            {'label': 'TLC Dummy 1', 'value': 'DUMMY1'},
-            {'label': 'TLC Dummy 2', 'value': 'DUMMY2'}
-        ]
+        "pharmacies": ["reitz", "roos", "tugela", "villiers", "winterton"]
     },
     "user": {
         "password": "password",
-        "pharmacies": [
-            {'label': 'TLC Dummy 1', 'value': 'DUMMY1'},
-            {'label': 'TLC Dummy 2', 'value': 'DUMMY2'}
-        ]
+        "pharmacies": ["DUMMY1", "DUMMY2"]
     }
 }
 
