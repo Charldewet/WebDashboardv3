@@ -4,20 +4,17 @@ import { LineChart, Line, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Lab
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
-// Import any needed chart components, etc.
 
-// Updated Custom Tooltip for overlaid chart
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     const currentYearPayload = payload.find(p => p.dataKey === 'currentYear');
     const previousYearPayload = payload.find(p => p.dataKey === 'previousYear');
 
-    // Determine if there is any valid data to show to prevent empty tooltip box
     const hasCurrentYearData = currentYearPayload && currentYearPayload.value !== null;
     const hasPreviousYearData = previousYearPayload && previousYearPayload.value !== null;
 
     if (!hasCurrentYearData && !hasPreviousYearData) {
-      return null; // Don't render tooltip if no data for either year at this point
+      return null;
     }
 
     return (
@@ -31,7 +28,6 @@ const CustomTooltip = ({ active, payload, label }) => {
         fontWeight: 500,
         boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
       }}>
-        {/* Day indication removed */}
         {currentYearPayload && currentYearPayload.value !== null && (
           <div style={{ color: currentYearPayload.stroke }}>
             {currentYearPayload.name}: R {currentYearPayload.value.toLocaleString('en-ZA')}
@@ -40,7 +36,7 @@ const CustomTooltip = ({ active, payload, label }) => {
         {previousYearPayload && previousYearPayload.value !== null && (
           <div style={{
             color: previousYearPayload.stroke,
-            marginTop: hasCurrentYearData ? '0.2rem' : '0' // Add margin only if current year data is also shown
+            marginTop: hasCurrentYearData ? '0.2rem' : '0'
           }}>
             {previousYearPayload.name}: R {previousYearPayload.value.toLocaleString('en-ZA')}
           </div>
@@ -51,7 +47,6 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-// Custom Tooltip for Bar Chart in Carousel Slide 2
 const BarChartTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const turnoverData = payload.find(p => p.dataKey === 'turnover');
@@ -59,24 +54,24 @@ const BarChartTooltip = ({ active, payload }) => {
 
     return (
       <div style={{
-        background: 'rgba(35, 43, 59, 0.9)', // Match CustomTooltip
-        border: '1px solid #374151',        // Match CustomTooltip
-        color: '#fff',                       // Match CustomTooltip
-        borderRadius: '0.8rem',             // Match CustomTooltip
-        padding: '0.8rem 1.2rem',           // Match CustomTooltip
-        fontSize: '0.9rem',                 // Match CustomTooltip
-        fontWeight: 500,                    // Match CustomTooltip
-        boxShadow: '0 4px 12px rgba(0,0,0,0.25)', // Match CustomTooltip
+        background: 'rgba(35, 43, 59, 0.9)',
+        border: '1px solid #374151',
+        color: '#fff',
+        borderRadius: '0.8rem',
+        padding: '0.8rem 1.2rem',
+        fontSize: '0.9rem',
+        fontWeight: 500,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
       }}>
         {turnoverData && typeof turnoverData.value === 'number' && (
-          <div style={{ color: turnoverData.payload.fill || '#FF4500' }}> 
+          <div style={{ color: turnoverData.payload.fill || '#FF4500' }}>
             {turnoverData.name}: R {turnoverData.value.toLocaleString('en-ZA')}
           </div>
         )}
         {basketValueData && typeof basketValueData.value === 'number' && (
-          <div style={{ 
-            color: basketValueData.stroke || '#82ca9d', // Default or specified stroke color
-            marginTop: turnoverData ? '0.2rem' : '0' 
+          <div style={{
+            color: basketValueData.stroke || '#82ca9d',
+            marginTop: turnoverData ? '0.2rem' : '0'
           }}>
             Avg Basket: R {basketValueData.value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
@@ -87,7 +82,6 @@ const BarChartTooltip = ({ active, payload }) => {
   return null;
 };
 
-// Add a generic custom tooltip for single-value line/bar charts
 const CustomTooltipSingleValue = ({ active, payload, label, valueLabel, valuePrefix }) => {
   if (active && payload && payload.length && payload[0].value !== null && payload[0].value !== undefined) {
     return (
@@ -111,80 +105,61 @@ const CustomTooltipSingleValue = ({ active, payload, label, valueLabel, valuePre
 };
 
 function MonthlyView({ selectedPharmacy, selectedDate }) {
-  const [mtdTurnover, setMtdTurnover] = useState(null); // For KPI card
-  const [loadingKpi, setLoadingKpi] = useState(true);      // For KPI card
-  const [errorKpi, setErrorKpi] = useState(null);        // For KPI card
-
+  const [mtdTurnover, setMtdTurnover] = useState(null);
+  const [loadingKpi, setLoadingKpi] = useState(true);
+  const [errorKpi, setErrorKpi] = useState(null);
   const [avgBasket, setAvgBasket] = useState({ value: null, size: null });
   const [loadingAvgBasket, setLoadingAvgBasket] = useState(true);
   const [errorAvgBasket, setErrorAvgBasket] = useState(null);
-
   const [combinedChartData, setCombinedChartData] = useState([]);
   const [loadingChart, setLoadingChart] = useState(true);
   const [errorChart, setErrorChart] = useState(null);
-
   const [comparisonDetails, setComparisonDetails] = useState(null);
-
   const [gpStats, setGpStats] = useState({ percent: null, value: null });
   const [loadingGpStats, setLoadingGpStats] = useState(true);
   const [errorGpStats, setErrorGpStats] = useState(null);
-
   const [costStats, setCostStats] = useState({ cost: null, purchases: null });
   const [loadingCostStats, setLoadingCostStats] = useState(true);
   const [errorCostStats, setErrorCostStats] = useState(null);
-
   const [transStats, setTransStats] = useState({ transactions: null, scripts: null });
   const [loadingTransStats, setLoadingTransStats] = useState(true);
   const [errorTransStats, setErrorTransStats] = useState(null);
-
   const [dispPie, setDispPie] = useState({ percent: null, disp: null, total: null });
   const [loadingDispPie, setLoadingDispPie] = useState(true);
   const [errorDispPie, setErrorDispPie] = useState(null);
-
   const [carouselPurchasesData, setCarouselPurchasesData] = useState([]);
   const [loadingCarouselPurchases, setLoadingCarouselPurchases] = useState(true);
   const [errorCarouselPurchases, setErrorCarouselPurchases] = useState(null);
-
   const [carouselCostOfSalesData, setCarouselCostOfSalesData] = useState([]);
   const [loadingCarouselCostOfSales, setLoadingCarouselCostOfSales] = useState(true);
   const [errorCarouselCostOfSales, setErrorCarouselCostOfSales] = useState(null);
-
   const [dailyTurnoverBarData, setDailyTurnoverBarData] = useState([]);
   const [loadingDailyTurnoverBar, setLoadingDailyTurnoverBar] = useState(true);
   const [errorDailyTurnoverBar, setErrorDailyTurnoverBar] = useState(null);
-
   const [dailyAvgBasketValueData, setDailyAvgBasketValueData] = useState([]);
   const [loadingDailyAvgBasketValue, setLoadingDailyAvgBasketValue] = useState(true);
   const [errorDailyAvgBasketValue, setErrorDailyAvgBasketValue] = useState(null);
-
   const [carouselCashSalesData, setCarouselCashSalesData] = useState([]);
   const [loadingCarouselCashSales, setLoadingCarouselCashSales] = useState(true);
   const [errorCarouselCashSales, setErrorCarouselCashSales] = useState(null);
-
   const [carouselAccountSalesData, setCarouselAccountSalesData] = useState([]);
   const [loadingCarouselAccountSales, setLoadingCarouselAccountSales] = useState(true);
   const [errorCarouselAccountSales, setErrorCarouselAccountSales] = useState(null);
-
   const [carouselCodSalesData, setCarouselCodSalesData] = useState([]);
   const [loadingCarouselCodSales, setLoadingCarouselCodSales] = useState(true);
   const [errorCarouselCodSales, setErrorCarouselCodSales] = useState(null);
-
   const [salesPieData, setSalesPieData] = useState([]);
   const [loadingSalesPie, setLoadingSalesPie] = useState(true);
   const [errorSalesPie, setErrorSalesPie] = useState(null);
-
   const [tenderPieData, setTenderPieData] = useState([]);
   const [loadingTenderPie, setLoadingTenderPie] = useState(true);
   const [errorTenderPie, setErrorTenderPie] = useState(null);
-
   const [dailyScriptsDispensedData, setDailyScriptsDispensedData] = useState([]);
   const [loadingDailyScriptsDispensed, setLoadingDailyScriptsDispensed] = useState(true);
   const [errorDailyScriptsDispensed, setErrorDailyScriptsDispensed] = useState(null);
-
   const [dailyGpPercentData, setDailyGpPercentData] = useState([]);
   const [loadingDailyGpPercent, setLoadingDailyGpPercent] = useState(true);
   const [errorDailyGpPercent, setErrorDailyGpPercent] = useState(null);
-
   const [dailyDispensaryTurnoverData, setDailyDispensaryTurnoverData] = useState([]);
   const [dailyTotalTurnoverData, setDailyTotalTurnoverData] = useState([]);
   const [loadingDailyDispensaryPercent, setLoadingDailyDispensaryPercent] = useState(true);
@@ -653,7 +628,7 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
     });
 
     // Fetch daily cash sales for the current period (for Slide 3)
-    axios.get(`${API_BASE_URL}/api/daily_cash_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/daily_cash_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -677,7 +652,7 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch daily account (debtor) sales for the current period (for Slide 3 overlay)
-    axios.get(`${API_BASE_URL}/api/daily_account_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/daily_account_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -701,7 +676,7 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch daily COD sales for the current period (for Slide 3 overlay)
-    axios.get(`${API_BASE_URL}/api/daily_cod_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/daily_cod_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -726,9 +701,9 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
 
     // Calculate totals for Cash, Debtor, and COD sales for the pie chart (Slide 4)
     Promise.all([
-      axios.get(`${API_BASE_URL}/api/daily_cash_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
-      axios.get(`${API_BASE_URL}/api/daily_account_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
-      axios.get(`${API_BASE_URL}/api/daily_cod_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
+      apiClient.get(`/api/daily_cash_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
+      apiClient.get(`/api/daily_account_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
+      apiClient.get(`/api/daily_cod_sales_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
     ])
       .then(([cashRes, accountRes, codRes]) => {
         const cashTotal = (cashRes.data?.daily_cash_sales || []).reduce((sum, d) => sum + (d.cash_sales || 0), 0);
@@ -759,8 +734,8 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
     setLoadingTenderPie(true);
     setErrorTenderPie(null);
     Promise.all([
-      axios.get(`${API_BASE_URL}/api/daily_cash_tenders_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
-      axios.get(`${API_BASE_URL}/api/daily_credit_card_tenders_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
+      apiClient.get(`/api/daily_cash_tenders_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
+      apiClient.get(`/api/daily_credit_card_tenders_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
     ])
       .then(([cashRes, cardRes]) => {
         const cashTotal = (cashRes.data?.daily_cash_tenders || []).reduce((sum, d) => sum + (d.cash_tenders_today || 0), 0);
@@ -785,7 +760,7 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch daily scripts dispensed for the current period
-    axios.get(`${API_BASE_URL}/api/daily_scripts_dispensed_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/daily_scripts_dispensed_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -808,7 +783,7 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
       });
 
     // Fetch daily GP percent for the current period
-    axios.get(`${API_BASE_URL}/api/daily_gp_percent_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
+    apiClient.get(`/api/daily_gp_percent_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, {
       headers: { 'X-Pharmacy': selectedPharmacy }
     })
       .then(res => {
@@ -832,8 +807,8 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
 
     // Fetch daily dispensary turnover and total turnover for the current period
     Promise.all([
-      axios.get(`${API_BASE_URL}/api/daily_turnover_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
-      axios.get(`${API_BASE_URL}/api/daily_dispensary_turnover_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
+      apiClient.get(`/api/daily_turnover_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } }),
+      apiClient.get(`/api/daily_dispensary_turnover_for_range/${firstDayCurrentMonth}/${lastDayCurrentPeriod}`, { headers: { 'X-Pharmacy': selectedPharmacy } })
     ])
       .then(([totalTurnoverRes, dispensaryTurnoverRes]) => {
         const totalTurnover = totalTurnoverRes.data?.daily_turnover || [];
@@ -850,7 +825,6 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
 
   }, [selectedPharmacy, selectedDate]);
 
-  // Format the selected month for display
   const getMonthName = (dateStr) => {
     const date = new Date(dateStr);
     return date.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -1246,20 +1220,14 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
                     <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.8rem', color: '#bdbdbd' }}/>
                     <Tooltip content={({ active, payload }) => {
                       if (active && payload && payload.length) {
+                        const total = payload.reduce((acc, curr) => acc + curr.value, 0);
                         return (
-                          <div style={{
-                            background: 'rgba(35, 43, 59, 0.9)',
-                            border: '1px solid #374151',
-                            color: '#fff',
-                            borderRadius: '0.8rem',
-                            padding: '0.8rem 1.2rem',
-                            fontSize: '0.9rem',
-                            fontWeight: 500,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                          }}>
-                            <div style={{ color: payload[0].payload.fill || '#FF4500' }}>
-                              {payload[0].name}: R {payload[0].value.toLocaleString('en-ZA')}
-                            </div>
+                          <div style={{ background: 'rgba(35, 43, 59, 0.9)', border: '1px solid #374151', color: '#fff', borderRadius: '0.8rem', padding: '0.8rem 1.2rem', fontSize: '0.9rem', fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}>
+                            {payload.map(p => (
+                              <div key={p.name} style={{ color: p.payload.fill, marginBottom: '0.2rem' }}>
+                                {p.name}: R {p.value.toLocaleString('en-ZA')} ({total > 0 ? ((p.value / total) * 100).toFixed(1) : 0}%)
+                              </div>
+                            ))}
                           </div>
                         );
                       }
@@ -1299,20 +1267,14 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
                     <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.8rem', color: '#bdbdbd' }}/>
                     <Tooltip content={({ active, payload }) => {
                       if (active && payload && payload.length) {
+                        const total = payload.reduce((acc, curr) => acc + curr.value, 0);
                         return (
-                          <div style={{
-                            background: 'rgba(35, 43, 59, 0.9)',
-                            border: '1px solid #374151',
-                            color: '#fff',
-                            borderRadius: '0.8rem',
-                            padding: '0.8rem 1.2rem',
-                            fontSize: '0.9rem',
-                            fontWeight: 500,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                          }}>
-                            <div style={{ color: payload[0].payload.fill || '#FF4500' }}>
-                              {payload[0].name}: R {payload[0].value.toLocaleString('en-ZA')}
-                            </div>
+                          <div style={{ background: 'rgba(35, 43, 59, 0.9)', border: '1px solid #374151', color: '#fff', borderRadius: '0.8rem', padding: '0.8rem 1.2rem', fontSize: '0.9rem', fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}>
+                            {payload.map(p => (
+                              <div key={p.name} style={{ color: p.payload.fill, marginBottom: '0.2rem' }}>
+                                {p.name}: R {p.value.toLocaleString('en-ZA')} ({total > 0 ? ((p.value / total) * 100).toFixed(1) : 0}%)
+                              </div>
+                            ))}
                           </div>
                         );
                       }
@@ -1326,24 +1288,63 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
           <div style={{ background: '#232b3b', borderRadius: '1rem', padding: '20px', boxSizing: 'border-box', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: '100%', textAlign: 'center' }}>
               <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 600, marginBottom: 12, marginTop: 12 }}>
-                Scripts Dispensed per Day ({selectedDate && (new Date(selectedDate)).toLocaleString('default', { month: 'long', year: 'numeric' })})
+                Scripts vs GP% ({selectedDate && (new Date(selectedDate)).toLocaleString('default', { month: 'long', year: 'numeric' })})
               </div>
-              {loadingDailyScriptsDispensed ? (
+              {(loadingDailyScriptsDispensed || loadingDailyGpPercent) ? (
                 <div style={{ color: '#bdbdbd', textAlign: 'center', marginTop: 60 }}>Loading chart...</div>
               ) : errorDailyScriptsDispensed ? (
                 <div style={{ color: 'red', textAlign: 'center', marginTop: 60 }}>{errorDailyScriptsDispensed}</div>
-              ) : dailyScriptsDispensedData.length === 0 ? (
-                <div style={{ color: '#bdbdbd', textAlign: 'center', marginTop: 60 }}>No data available for this month.</div>
+              ) : errorDailyGpPercent ? (
+                <div style={{ color: 'red', textAlign: 'center', marginTop: 60 }}>{errorDailyGpPercent}</div>
               ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={dailyScriptsDispensedData} margin={{ top: 10, right: 10, left: -15, bottom: 10 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={dailyScriptsDispensedData.map((item, index) => ({
+                      ...item,
+                      gp_percent: dailyGpPercentData[index]?.gp_percent ?? null,
+                    }))}
+                    margin={{ top: 10, right: 5, left: -22, bottom: 10 }}
+                  >
                     <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#bdbdbd' }} axisLine={{ stroke: '#374151' }} tickLine={{ stroke: '#374151' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#bdbdbd' }} axisLine={{ stroke: '#374151' }} tickLine={{ stroke: '#374151' }} width={60}
-                      tickFormatter={value => value.toLocaleString('en-ZA', { maximumFractionDigits: 2 })}
+                    <YAxis
+                      yAxisId="left"
+                      tick={{ fontSize: 11, fill: '#bdbdbd' }}
+                      axisLine={{ stroke: '#374151' }}
+                      tickLine={{ stroke: '#374151' }}
+                      tickFormatter={value => `${value.toFixed(0)}`}
+                      width={60}
                     />
-                    <Tooltip content={<CustomTooltipSingleValue valueLabel="Scripts Dispensed" valuePrefix="" />} cursor={{ stroke: '#39FF14', strokeWidth: 1, opacity: 0.1 }} />
-                    <Line type="monotone" dataKey="scripts_dispensed" name="Scripts Dispensed" stroke="#39FF14" strokeWidth={3} dot={false} connectNulls={true} />
-                  </LineChart>
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tick={{ fontSize: 11, fill: '#bdbdbd' }}
+                      axisLine={{ stroke: '#374151' }}
+                      tickLine={{ stroke: '#374151' }}
+                      tickFormatter={value => `${value.toFixed(1)}%`}
+                      width={50}
+                      margin={{ right: 10 }}
+                    />
+                    <Tooltip content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div style={{ background: 'rgba(35, 43, 59, 0.9)', border: '1px solid #374151', color: '#fff', borderRadius: '0.8rem', padding: '0.8rem 1.2rem', fontSize: '0.9rem', fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}>
+                            <div style={{ color: '#FFB800', fontWeight: 600 }}>
+                              Scripts: {payload.find(p => p.dataKey === 'scripts_dispensed')?.value?.toLocaleString('en-ZA')}
+                            </div>
+                            {payload.find(p => p.dataKey === 'gp_percent')?.value !== null && (
+                              <div style={{ color: '#39FF14', fontWeight: 600, marginTop: 2 }}>
+                                GP%: {payload.find(p => p.dataKey === 'gp_percent')?.value?.toFixed(2)}%
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }} cursor={{ fill: 'rgba(255, 69, 0, 0.1)' }} />
+                    <Legend verticalAlign="bottom" height={36} iconType="plainline" wrapperStyle={{ fontSize: '0.7rem', color: '#bdbdbd', paddingTop: '0px'}}/>
+                    <Bar yAxisId="left" dataKey="scripts_dispensed" name="Scripts Dispensed" fill="#FFB800" barSize={8.5} radius={[3, 3, 0, 0]} />
+                    <Line yAxisId="right" type="monotone" dataKey="gp_percent" name="Daily GP%" stroke="#39FF14" strokeWidth={2.5} dot={false} connectNulls={true} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               )}
             </div>
@@ -1351,49 +1352,48 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
           <div style={{ background: '#232b3b', borderRadius: '1rem', padding: '20px', boxSizing: 'border-box', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: '100%', textAlign: 'center' }}>
               <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 600, marginBottom: 12, marginTop: 12 }}>
-                Daily GP % ({selectedDate && (new Date(selectedDate)).toLocaleString('default', { month: 'long', year: 'numeric' })})
+                Dispensary vs Total Turnover %
               </div>
-              {(loadingDailyGpPercent || loadingDailyDispensaryPercent) ? (
+              {loadingDailyDispensaryPercent ? (
                 <div style={{ color: '#bdbdbd', textAlign: 'center', marginTop: 60 }}>Loading chart...</div>
-              ) : errorDailyGpPercent ? (
-                <div style={{ color: 'red', textAlign: 'center', marginTop: 60 }}>{errorDailyGpPercent}</div>
               ) : errorDailyDispensaryPercent ? (
                 <div style={{ color: 'red', textAlign: 'center', marginTop: 60 }}>{errorDailyDispensaryPercent}</div>
-              ) : dailyGpPercentData.length === 0 ? (
-                <div style={{ color: '#bdbdbd', textAlign: 'center', marginTop: 60 }}>No data available for this month.</div>
               ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={dailyGpPercentData} margin={{ top: 10, right: 10, left: -15, bottom: 10 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={dailyTotalTurnoverData.map((item, index) => {
+                      const dispensaryItem = dailyDispensaryTurnoverData.find(d => d.date === item.date);
+                      const totalTurnover = item.turnover || 0;
+                      const dispensaryTurnover = dispensaryItem ? (dispensaryItem.dispensary_turnover || 0) : 0;
+                      return {
+                        day: item.date.slice(8, 10),
+                        percent: totalTurnover > 0 ? (dispensaryTurnover / totalTurnover) * 100 : 0
+                      };
+                    })}
+                    margin={{ top: 10, right: 5, left: -22, bottom: 10 }}
+                  >
                     <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#bdbdbd' }} axisLine={{ stroke: '#374151' }} tickLine={{ stroke: '#374151' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#bdbdbd' }} axisLine={{ stroke: '#374151' }} tickLine={{ stroke: '#374151' }} width={60}
-                      tickFormatter={value => value !== null ? value.toLocaleString('en-ZA', { maximumFractionDigits: 2 }) + '%' : ''}
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#bdbdbd' }}
+                      axisLine={{ stroke: '#374151' }}
+                      tickLine={{ stroke: '#374151' }}
+                      tickFormatter={value => `${value.toFixed(0)}%`}
+                      width={60}
                     />
                     <Tooltip content={({ active, payload }) => {
                       if (active && payload && payload.length) {
-                        const gp = payload.find(p => p.dataKey === 'gp_percent');
                         return (
-                          <div style={{
-                            background: 'rgba(35, 43, 59, 0.9)',
-                            border: '1px solid #374151',
-                            color: '#fff',
-                            borderRadius: '0.8rem',
-                            padding: '0.8rem 1.2rem',
-                            fontSize: '0.9rem',
-                            fontWeight: 500,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                          }}>
-                            {gp && (
-                              <div style={{ color: '#39FF14' }}>
-                                GP%: {gp.value !== null && gp.value !== undefined ? gp.value.toLocaleString('en-ZA', { maximumFractionDigits: 2 }) + '%' : 'N/A'}
-                              </div>
-                            )}
+                          <div style={{ background: 'rgba(35, 43, 59, 0.9)', border: '1px solid #374151', color: '#fff', borderRadius: '0.8rem', padding: '0.8rem 1.2rem', fontSize: '0.9rem', fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}>
+                            <div style={{ color: '#FFB800' }}>
+                              Dispensary %: {payload[0].value.toFixed(2)}%
+                            </div>
                           </div>
                         );
                       }
                       return null;
-                    }} cursor={{ fill: 'rgba(57,255,20,0.12)' }} />
-                    <Bar dataKey="gp_percent" name="GP" fill="#FFB800" barSize={11} radius={[3, 3, 0, 0]} />
-                  </BarChart>
+                    }} cursor={{ stroke: '#FF4500', strokeWidth: 1, opacity: 0.1 }} />
+                    <Line type="monotone" dataKey="percent" name="Dispensary %" stroke="#FFB800" strokeWidth={3} dot={false} connectNulls={true} />
+                  </LineChart>
                 </ResponsiveContainer>
               )}
             </div>
@@ -1403,5 +1403,4 @@ function MonthlyView({ selectedPharmacy, selectedDate }) {
     </div>
   );
 }
-
-export default MonthlyView; 
+export default MonthlyView;

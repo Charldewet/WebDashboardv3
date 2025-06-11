@@ -20,8 +20,11 @@ def generate_data_for_pharmacy(session, pharmacy_code, base_turnover):
     today = date.today()
     start_date = today - timedelta(days=365 * 2)
     
-    # Initial stock value
-    current_stock = base_turnover / 30 * 5 # Approx 5x daily turnover
+    # Initial stock value, based on average daily cost of sales.
+    # This ensures the first day's data is consistent with the rest.
+    avg_cos_percentage = (0.65 + 0.78) / 2
+    initial_cost_of_sales = base_turnover * avg_cos_percentage
+    current_stock = initial_cost_of_sales * random.uniform(0.75, 1.25)
 
     for i in range((today - start_date).days + 1):
         current_date = start_date + timedelta(days=i)
@@ -56,11 +59,17 @@ def generate_data_for_pharmacy(session, pharmacy_code, base_turnover):
         cost_of_sales = turnover * cost_of_sales_percentage
         gp_value = turnover - cost_of_sales
         
-        purchases = cost_of_sales * random.uniform(0.85, 1.15) # Purchases fluctuate around CoS
-        adjustments = turnover * random.uniform(-0.01, 0.01) # Small adjustments
-        
         opening_stock = current_stock
-        closing_stock = opening_stock + purchases - cost_of_sales + adjustments
+        # Per user request: closing stock should be around cost of sales (+- 25%)
+        closing_stock = cost_of_sales * random.uniform(0.75, 1.25)
+        
+        # Adjustments are a small random factor
+        adjustments = turnover * random.uniform(-0.01, 0.01)
+        
+        # Purchases are calculated to balance the stock equation:
+        # closing = opening + purchases - cost_of_sales + adjustments
+        purchases = closing_stock - opening_stock + cost_of_sales - adjustments
+        
         current_stock = closing_stock # Carry over for next day
         
         # Basket and transaction metrics
