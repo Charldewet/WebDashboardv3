@@ -10,7 +10,6 @@ from flask_cors import CORS
 import datetime
 import gc
 from functools import wraps
-import jwt
 
 # Memory optimization at startup
 def optimize_memory():
@@ -52,30 +51,6 @@ startup_memory = optimize_memory()
 print(f"[Startup] Application started with {startup_memory:.2f} MB memory usage", flush=True)
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
-
-# Create a secret key for JWT
-JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-here')  # In production, use a secure secret key
-
-# Authentication decorator
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({'message': 'Token is missing'}), 401
-        try:
-            # Remove 'Bearer ' prefix if present
-            if token.startswith('Bearer '):
-                token = token[7:]
-            data = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            # Add user info to request context
-            request.user = data
-        except jwt.ExpiredSignatureError:
-            return jsonify({'message': 'Token has expired'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'message': 'Invalid token'}), 401
-        return f(*args, **kwargs)
-    return decorated
 
 @api_bp.route('/turnover', methods=['GET'])
 def get_turnover():
@@ -1175,51 +1150,8 @@ def start_periodic_fetch_once():
 start_periodic_fetch_once()
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {
-    "origins": ["https://webdashfront.onrender.com", "http://localhost:5173"],
-    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization"],
-    "supports_credentials": True
-}})
+CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}})
 app.register_blueprint(api_bp)
-
-# Authentication endpoints
-@api_bp.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    
-    # For demo purposes, we'll use a simple check
-    # In production, you should use proper password hashing and database storage
-    if username == 'admin' and password == 'password':
-        token = jwt.encode({
-            'user': username,
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
-        }, JWT_SECRET)
-        return jsonify({
-            'token': token,
-            'user': username
-        })
-    
-    return jsonify({'message': 'Invalid credentials'}), 401
-
-@api_bp.route('/verify', methods=['GET'])
-@token_required
-def verify_token():
-    return jsonify({
-        'valid': True,
-        'user': request.user
-    })
-
-# Example of a protected route
-@api_bp.route('/protected', methods=['GET'])
-@token_required
-def protected_route():
-    return jsonify({
-        'message': 'This is a protected route',
-        'user': request.user
-    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000) 
