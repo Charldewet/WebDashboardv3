@@ -1,8 +1,7 @@
-from flask import jsonify, request, Blueprint, Flask, g
-from app.models import DailyReport
+from flask import jsonify, request, Blueprint, g
+from app.models import DailyReport, StockSale, Product
 from app.db import create_session, cleanup_db_sessions
 from app.stock_sales_fetcher import fetch_and_process_stock_sales_pdfs
-from app.models import DailyReport, StockSale, Product
 from sqlalchemy import func, desc
 import subprocess
 import threading
@@ -1370,12 +1369,19 @@ def start_periodic_fetch_once():
             thread.start()
             print("[Startup] Periodic fetch thread started.", flush=True)
 
-app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}}, supports_credentials=True)
-app.register_blueprint(api_bp)
+# This logic is now handled in __init__.py
+# app = Flask(__name__)
+# CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}}, supports_credentials=True)
 
-# Start periodic fetch in production
-start_periodic_fetch_once()
+# app.register_blueprint(api_bp)
+
+# # Start periodic fetch in production
+# start_periodic_fetch_once()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000) 
+    # This block is for local development and direct execution.
+    # The production server (gunicorn) will not use this.
+    app = Flask(__name__)
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    app.register_blueprint(api_bp)
+    app.run(host='0.0.0.0', port=5001, debug=True) 
