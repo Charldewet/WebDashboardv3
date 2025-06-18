@@ -1,6 +1,7 @@
 from flask import jsonify, request, Blueprint, Flask, g
 from app.models import DailyReport
 from app.db import create_session, cleanup_db_sessions
+from app.stock_sales_fetcher import fetch_and_process_stock_sales_pdfs
 import subprocess
 import threading
 import time
@@ -12,6 +13,7 @@ import gc
 from functools import wraps
 import jwt
 from datetime import datetime, timedelta
+import sys
 
 # Memory optimization at startup
 def optimize_memory():
@@ -1288,6 +1290,14 @@ def periodic_fetch():
                 print("[Periodic Fetch] Error: fetch_latest.py not found", flush=True)
             except Exception as e:
                 print(f"[Periodic Fetch] Error running subprocess: {e}", flush=True)
+                
+            # 2. Fetch and process stock sales PDFs
+            print("[Periodic Fetch] Starting stock sales PDF fetch process...", flush=True)
+            try:
+                fetch_and_process_stock_sales_pdfs()
+                print("[Periodic Fetch] Stock sales PDF fetch completed successfully", flush=True)
+            except Exception as e:
+                print(f"[Periodic Fetch] Error in stock sales fetch: {e}", flush=True)
                 
         except Exception as e:
             print(f"[Periodic Fetch] Unexpected error in periodic fetch loop: {e}", flush=True)

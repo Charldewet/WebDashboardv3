@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 import app.app as routes_module # Import the app.py module specifically
+from app import models  # Import models to ensure they're loaded
 
 # Create the main Flask application instance
 app = Flask(__name__)
