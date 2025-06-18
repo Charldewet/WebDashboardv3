@@ -67,6 +67,14 @@ USERS = {
     "user": {
         "password": "password",
         "pharmacies": ["DUMMY1", "DUMMY2"]
+    },
+    "newuser": {
+        "password": "securepassword123",
+        "pharmacies": ["reitz", "roos", "tugela", "villiers", "winterton"]
+    },
+    "Elani": {
+        "password": "Elani123",
+        "pharmacies": ["villiers"]
     }
 }
 

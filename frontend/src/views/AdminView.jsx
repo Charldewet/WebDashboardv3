@@ -16,7 +16,6 @@ function AdminView({ selectedPharmacy }) {
   const [displayMonth, setDisplayMonth] = useState(new Date());
   const modalRef = useRef(null);
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL;
   const currentYear = new Date().getFullYear();
 
   // Calculate date range (last 2 years)
@@ -112,15 +111,30 @@ function AdminView({ selectedPharmacy }) {
           handleCloseModal();
         }, 2000);
       } else {
-        setSubmitError(data.error || 'Failed to submit turnover data');
+        setSubmitError(data.message || 'Failed to add turnover data');
       }
     } catch (error) {
-      setSubmitError('Network error. Please try again.');
       console.error('Error submitting turnover:', error);
+      setSubmitError('An error occurred while submitting the data');
     } finally {
       setSubmitting(false);
     }
   };
+
+  // Handle click outside modal
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        handleCloseModal();
+      }
+    }
+
+    if (showModal) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showModal]);
 
   // Create modifiers for the date picker
   const missingDateObjects = missingDates.map(dateStr => {
@@ -156,22 +170,14 @@ function AdminView({ selectedPharmacy }) {
     disabled: 'admin-calendar-disabled'
   };
 
-  // Handle click outside modal
-  useEffect(() => {
-    if (!showModal) return;
-    
-    function handleClickOutside(event) {
-      if (modalRef.current && !modalRef.current.contains(event.target)) {
-        handleCloseModal();
-      }
-    }
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showModal]);
+  if (!selectedPharmacy) {
+    return <div>Please select a pharmacy to manage turnover data.</div>;
+  }
 
   return (
-    <div style={{ padding: '1rem', maxWidth: '100%', margin: '0 auto', overflow: 'hidden' }}>
+    <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+      <h1 style={{ color: '#fff', marginBottom: '2rem' }}>Turnover Data Management</h1>
+      
       {/* Header */}
       <div style={{
         background: '#232b3b',
@@ -194,7 +200,7 @@ function AdminView({ selectedPharmacy }) {
           color: '#bdbdbd',
           margin: 0
         }}>
-          Add missing turnover data for {selectedPharmacy ? selectedPharmacy.toUpperCase() : 'selected pharmacy'}
+          Add missing turnover data for {selectedDate ? formatDate(selectedDate) : 'selected pharmacy'}
         </p>
       </div>
 
