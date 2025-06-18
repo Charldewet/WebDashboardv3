@@ -2,6 +2,8 @@ from flask import jsonify, request, Blueprint, Flask, g
 from app.models import DailyReport
 from app.db import create_session, cleanup_db_sessions
 from app.stock_sales_fetcher import fetch_and_process_stock_sales_pdfs
+from app.models import DailyReport, StockSale, Product
+from sqlalchemy import func, desc
 import subprocess
 import threading
 import time
@@ -253,6 +255,44 @@ def get_avg_basket_for_range(start_date, end_date):
 @token_required
 @authorize_pharmacy
 @memory_cleanup
+@api_bp.route('/top_products_by_qty/<date>', methods=['GET'])
+@token_required
+@memory_cleanup
+def get_top_products_by_qty(date):
+    """Returns the top 10 products by quantity sold for a given date."""
+    try:
+        # No pharmacy code is needed as stock sales are not pharmacy-specific yet
+        sale_date = datetime.strptime(date, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+
+    session = create_session()
+    try:
+        top_products = (
+            session.query(
+                Product.description,
+                func.sum(StockSale.qty).label('total_qty')
+            )
+            .join(Product, StockSale.stock_code == Product.stock_code)
+            .filter(StockSale.sale_date == sale_date)
+            .group_by(Product.description)
+            .order_by(desc('total_qty'))
+            .limit(10)
+            .all()
+        )
+
+        result = [
+            {"product": description, "quantity": float(total_qty)}
+            for description, total_qty in top_products
+        ]
+        
+        return jsonify(result)
+    except Exception as e:
+        print(f"Error fetching top products: {e}", file=sys.stderr)
+        return jsonify({"error": "Could not retrieve top products data."}), 500
+    finally:
+        session.close()
+
 def get_gp_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
@@ -1323,19 +1363,19 @@ def periodic_fetch():
 
 def start_periodic_fetch_once():
     # Only start in production environments and only in one process
-    if os.environ.get("RENDER") == "true":
-        # Only start periodic fetch in production on Render
-        # Use a separate thread that won't block the main application
-        threading.Thread(target=periodic_fetch, daemon=True).start()
-        print("[Startup] Periodic fetch thread started for Render environment", flush=True)
-    else:
-        print("[Startup] Periodic fetch disabled for local development", flush=True)
-
-start_periodic_fetch_once()
+    if os.environ.get('FLASK_ENV') == 'production' and not os.environ.get('WERKZEUG_RUN_MAIN'):
+        if not hasattr(start_periodic_fetch_once, 'has_run'):
+            start_periodic_fetch_once.has_run = True
+            thread = threading.Thread(target=periodic_fetch, daemon=True)
+            thread.start()
+            print("[Startup] Periodic fetch thread started.", flush=True)
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}})
+CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}}, supports_credentials=True)
 app.register_blueprint(api_bp)
+
+# Start periodic fetch in production
+start_periodic_fetch_once()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000) 
