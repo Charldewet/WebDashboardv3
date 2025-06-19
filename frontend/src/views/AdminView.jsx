@@ -9,7 +9,20 @@ function AdminView({ selectedPharmacy }) {
   const [errorMissingDates, setErrorMissingDates] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [turnoverValue, setTurnoverValue] = useState('');
+  
+  // State for all form fields
+  const [formData, setFormData] = useState({
+    turnover_value: '',
+    avg_basket_size: '',
+    avg_basket_value: '',
+    daily_gp_percent: '',
+    gp_value: '',
+    cost_of_sales: '',
+    purchases: '',
+    transaction_qty: '',
+    script_qty: ''
+  });
+
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(null);
@@ -65,28 +78,54 @@ function AdminView({ selectedPharmacy }) {
     if (missingDates.includes(dateStr)) {
       setSelectedDate(date);
       setShowModal(true);
-      setTurnoverValue('');
+      // Reset form data when modal opens
+      setFormData({
+        turnover_value: '',
+        avg_basket_size: '',
+        avg_basket_value: '',
+        daily_gp_percent: '',
+        gp_value: '',
+        cost_of_sales: '',
+        purchases: '',
+        transaction_qty: '',
+        script_qty: ''
+      });
       setSubmitError(null);
       setSubmitSuccess(null);
     }
+  };
+
+  // Handle input change
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   // Handle modal close
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedDate(null);
-    setTurnoverValue('');
     setSubmitError(null);
     setSubmitSuccess(null);
   };
 
   // Handle turnover submission
-  const handleSubmitTurnover = async () => {
-    if (!selectedDate || !turnoverValue || !selectedPharmacy) return;
+  const handleSubmitData = async () => {
+    if (!selectedDate || !selectedPharmacy) return;
 
-    const value = parseFloat(turnoverValue);
-    if (isNaN(value) || value <= 0) {
-      setSubmitError('Please enter a valid positive number');
+    // Filter out empty fields and convert to numbers
+    const payload = Object.entries(formData).reduce((acc, [key, value]) => {
+      if (value !== '') {
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue)) {
+          acc[key] = numValue;
+        }
+      }
+      return acc;
+    }, {});
+
+    if (Object.keys(payload).length === 0) {
+      setSubmitError('Please enter at least one value to submit.');
       return;
     }
 
@@ -97,13 +136,13 @@ function AdminView({ selectedPharmacy }) {
       const response = await apiClient.post(`/api/manual_turnover`, {
         pharmacy_code: selectedPharmacy,
         date: formatDate(selectedDate),
-        turnover_value: value
+        ...payload
       });
 
       const data = response.data;
 
       if (response.status === 200 && data.success) {
-        setSubmitSuccess(`Successfully added turnover data: R${value.toLocaleString()}`);
+        setSubmitSuccess(`Successfully added data for ${formatDate(selectedDate)}.`);
         // Remove the date from missing dates
         setMissingDates(prev => prev.filter(date => date !== formatDate(selectedDate)));
         // Close modal after 2 seconds
@@ -111,11 +150,12 @@ function AdminView({ selectedPharmacy }) {
           handleCloseModal();
         }, 2000);
       } else {
-        setSubmitError(data.message || 'Failed to add turnover data');
+        setSubmitError(data.error || 'Failed to add data');
       }
     } catch (error) {
-      console.error('Error submitting turnover:', error);
-      setSubmitError('An error occurred while submitting the data');
+      console.error('Error submitting data:', error);
+      const errorMessage = error.response?.data?.error || 'An error occurred while submitting the data';
+      setSubmitError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -200,7 +240,8 @@ function AdminView({ selectedPharmacy }) {
           color: '#bdbdbd',
           margin: 0
         }}>
-          Add missing turnover data for {selectedDate ? formatDate(selectedDate) : 'selected pharmacy'}
+          Select a missing date from the calendar to manually enter its data. <br/>
+          Only dates highlighted in red are available for manual entry.
         </p>
       </div>
 
@@ -292,131 +333,170 @@ function AdminView({ selectedPharmacy }) {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal for adding turnover */}
       {showModal && (
         <div style={{
           position: 'fixed',
           top: 0,
           left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.7)',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 30000
+          alignItems: 'center',
+          zIndex: 1000
         }}>
-          <div
-            ref={modalRef}
-            style={{
-              background: '#232b3b',
-              borderRadius: '1rem',
-              padding: '2rem',
-              maxWidth: '400px',
-              width: '90%',
-              color: '#fff'
-            }}
-          >
-            <h2 style={{
-              margin: '0 0 1rem 0',
-              fontSize: '1.5rem',
-              fontWeight: 600
-            }}>
-              Add Turnover Data
+          <div ref={modalRef} style={{
+            background: '#2d3748',
+            padding: '2rem',
+            borderRadius: '1rem',
+            width: '90%',
+            maxWidth: '600px',
+            color: '#fff',
+            maxHeight: '80vh',
+            overflowY: 'auto'
+          }}>
+            <h2 style={{ borderBottom: '1px solid #4a5568', paddingBottom: '1rem' }}>
+              Add Data for {formatDate(selectedDate)}
             </h2>
-            <p style={{
-              margin: '0 0 1.5rem 0',
-              color: '#bdbdbd'
-            }}>
-              Date: {selectedDate ? formatDate(selectedDate) : ''}
-            </p>
 
-            {submitSuccess && (
-              <div style={{
-                background: '#065F46',
-                color: '#A7F3D0',
-                borderRadius: '0.5rem',
-                padding: '0.75rem',
-                marginBottom: '1rem'
-              }}>
-                {submitSuccess}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+              {/* Turnover */}
+              <div>
+                <label>Turnover (R)</label>
+                <input
+                  type="number"
+                  name="turnover_value"
+                  value={formData.turnover_value}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 25000.50"
+                  style={inputStyle}
+                />
               </div>
-            )}
 
-            {submitError && (
-              <div style={{
-                background: '#7F1D1D',
-                color: '#FCA5A5',
-                borderRadius: '0.5rem',
-                padding: '0.75rem',
-                marginBottom: '1rem'
-              }}>
-                {submitError}
+              {/* GP Value */}
+              <div>
+                <label>GP Value (R)</label>
+                <input
+                  type="number"
+                  name="gp_value"
+                  value={formData.gp_value}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 8000.25"
+                  style={inputStyle}
+                />
               </div>
-            )}
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: 500
-              }}>
-                Turnover Amount (R)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={turnoverValue}
-                onChange={(e) => setTurnoverValue(e.target.value)}
-                placeholder="Enter turnover amount"
-                disabled={submitting || !!submitSuccess}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid #4B5563',
-                  background: '#374151',
-                  color: '#fff',
-                  fontSize: '1rem'
-                }}
-              />
+              {/* Daily GP % */}
+              <div>
+                <label>Daily GP (%)</label>
+                <input
+                  type="number"
+                  name="daily_gp_percent"
+                  value={formData.daily_gp_percent}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 32.5"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Cost of Sales */}
+              <div>
+                <label>Cost of Sales (R)</label>
+                <input
+                  type="number"
+                  name="cost_of_sales"
+                  value={formData.cost_of_sales}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 17000.25"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Purchases */}
+              <div>
+                <label>Purchases (R)</label>
+                <input
+                  type="number"
+                  name="purchases"
+                  value={formData.purchases}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 15000"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Avg Basket Value */}
+              <div>
+                <label>Avg Basket Value (R)</label>
+                <input
+                  type="number"
+                  name="avg_basket_value"
+                  value={formData.avg_basket_value}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 150.75"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Avg Basket Size */}
+              <div>
+                <label>Avg Basket Size (Items)</label>
+                <input
+                  type="number"
+                  name="avg_basket_size"
+                  value={formData.avg_basket_size}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 3.2"
+                  style={inputStyle}
+                />
+              </div>
+              
+              {/* Transaction Qty */}
+              <div>
+                <label>Transaction Qty</label>
+                <input
+                  type="number"
+                  name="transaction_qty"
+                  value={formData.transaction_qty}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 165"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Script Qty */}
+              <div>
+                <label>Script Qty</label>
+                <input
+                  type="number"
+                  name="script_qty"
+                  value={formData.script_qty}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 90"
+                  style={inputStyle}
+                />
+              </div>
             </div>
 
-            <div style={{
-              display: 'flex',
-              gap: '1rem',
-              justifyContent: 'flex-end'
-            }}>
+            {submitError && <div style={{ color: '#e53e3e', marginTop: '1rem' }}>{submitError}</div>}
+            {submitSuccess && <div style={{ color: '#48bb78', marginTop: '1rem' }}>{submitSuccess}</div>}
+
+            <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
               <button
                 onClick={handleCloseModal}
                 disabled={submitting}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  background: '#4B5563',
-                  color: '#fff',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  fontWeight: 500
-                }}
+                style={{ background: '#4a5568', color: '#fff', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.5rem', cursor: 'pointer' }}
               >
                 Cancel
               </button>
               <button
-                onClick={handleSubmitTurnover}
-                disabled={submitting || !turnoverValue || !!submitSuccess}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  background: submitting || !!submitSuccess ? '#6B7280' : '#FF4500',
-                  color: '#fff',
-                  cursor: submitting || !turnoverValue || !!submitSuccess ? 'not-allowed' : 'pointer',
-                  fontWeight: 500
-                }}
+                onClick={handleSubmitData}
+                disabled={submitting}
+                style={{ background: '#48bb78', color: '#fff', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.5rem', cursor: 'pointer' }}
               >
-                {submitting ? 'Adding...' : 'Add Turnover'}
+                {submitting ? 'Submitting...' : 'Submit Data'}
               </button>
             </div>
           </div>
@@ -427,5 +507,16 @@ function AdminView({ selectedPharmacy }) {
     </div>
   );
 }
+
+const inputStyle = {
+  width: '100%',
+  padding: '0.75rem',
+  borderRadius: '0.5rem',
+  border: '1px solid #4a5568',
+  background: '#1a202c',
+  color: '#fff',
+  marginTop: '0.25rem',
+  boxSizing: 'border-box'
+};
 
 export default AdminView; 

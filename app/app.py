@@ -974,24 +974,18 @@ def get_missing_turnover_dates(pharmacy_code, start_date, end_date):
 @api_bp.route('/manual_turnover', methods=['POST'])
 @token_required
 @memory_cleanup
-def add_manual_turnover():
-    """Add manual turnover data for a specific pharmacy and date."""
+def add_manual_daily_report():
+    """Add or update manual daily report data for a specific pharmacy and date."""
     try:
         data = request.get_json()
         
-        if not data or not all(key in data for key in ['pharmacy_code', 'date', 'turnover_value']):
+        if not data or not all(key in data for key in ['pharmacy_code', 'date']):
             return jsonify({
-                'error': 'Missing required fields: pharmacy_code, date, turnover_value'
+                'error': 'Missing required fields: pharmacy_code, date'
             }), 400
         
         pharmacy_code = data['pharmacy_code']
         date_str = data['date']
-        turnover_value = float(data['turnover_value'])
-        
-        if turnover_value <= 0:
-            return jsonify({
-                'error': 'Turnover value must be greater than 0'
-            }), 400
         
         # Parse date
         try:
@@ -1004,34 +998,52 @@ def add_manual_turnover():
         
         session = create_session()
         
-        # Check if a record already exists for this pharmacy and date
-        existing_report = session.query(DailyReport).filter(
+        # Check if a record already exists
+        report = session.query(DailyReport).filter(
             DailyReport.pharmacy_code == pharmacy_code,
             DailyReport.report_date == date_obj
         ).first()
         
-        if existing_report:
-            # Check if it already has turnover data
-            if existing_report.total_turnover_today and existing_report.total_turnover_today > 0:
-                session.close()
-                return jsonify({
-                    'error': f'Turnover data already exists for {pharmacy_code} on {date_str}'
-                }), 409
-            
-            # Update existing record
-            existing_report.total_turnover_today = turnover_value
-            session.commit()
-            message = f'Updated turnover data for {pharmacy_code} on {date_str}'
-        else:
-            # Create new record with minimal required data
-            new_report = DailyReport(
+        if not report:
+            # Create a new report if it doesn't exist
+            report = DailyReport(
                 pharmacy_code=pharmacy_code,
-                report_date=date_obj,
-                total_turnover_today=turnover_value
+                report_date=date_obj
             )
-            session.add(new_report)
-            session.commit()
-            message = f'Created new turnover data for {pharmacy_code} on {date_str}'
+            session.add(report)
+            message_action = "Created new report"
+        else:
+            message_action = "Updated report"
+
+        # Update fields from request data if they exist
+        # Turnover and GP
+        if 'turnover_value' in data:
+            report.total_turnover_today = float(data['turnover_value'])
+        if 'gp_value' in data:
+            report.stock_gross_profit_today = float(data['gp_value'])
+        if 'daily_gp_percent' in data:
+            report.stock_gross_profit_percent_today = float(data['daily_gp_percent'])
+        
+        # Basket metrics
+        if 'avg_basket_size' in data:
+            report.avg_items_per_basket = float(data['avg_basket_size'])
+        if 'avg_basket_value' in data:
+            report.avg_value_per_basket = float(data['avg_basket_value'])
+
+        # Stock and Cost
+        if 'cost_of_sales' in data:
+            report.cost_of_sales_today = float(data['cost_of_sales'])
+        if 'purchases' in data:
+            report.stock_purchases_today = float(data['purchases'])
+            
+        # Quantities
+        if 'transaction_qty' in data:
+            report.pos_turnover_trans_today = int(data['transaction_qty'])
+        if 'script_qty' in data:
+            report.scripts_dispensed_today = int(data['script_qty'])
+
+        session.commit()
+        message = f'{message_action} for {pharmacy_code} on {date_str}'
         
         session.close()
         return jsonify({
@@ -1039,17 +1051,19 @@ def add_manual_turnover():
             'message': message,
             'pharmacy_code': pharmacy_code,
             'date': date_str,
-            'turnover_value': turnover_value
+            'data': data # Return submitted data
         })
         
-    except ValueError:
+    except (ValueError, TypeError) as e:
         return jsonify({
-            'error': 'Invalid turnover value. Must be a number.'
+            'error': f'Invalid data type. Please ensure values are correct numbers. Details: {e}'
         }), 400
     except Exception as e:
-        session.close() if 'session' in locals() else None
+        if 'session' in locals() and session.is_active:
+            session.rollback()
+            session.close()
         return jsonify({
-            'error': f'Error adding manual turnover: {str(e)}'
+            'error': f'Error adding manual data: {str(e)}'
         }), 500
 
 @api_bp.route('/check_turnover/<pharmacy_code>/<date>', methods=['GET'])
