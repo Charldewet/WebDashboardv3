@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '../api'; // Import the new api client
 import { PieChart, Pie, Cell, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import TopProductsChart from '../components/TopProductsChart'; // Import the new chart component
 
 // Custom Tooltip for Composed Chart
 const CustomCombinedTooltip = ({ active, payload, label }) => {
@@ -104,11 +103,6 @@ function DailyView({ selectedPharmacy, selectedDate }) {
   const [loadingYoyComparison, setLoadingYoyComparison] = useState(true);
   const [errorYoyComparison, setErrorYoyComparison] = useState(null);
 
-  // New state for Top Products Chart
-  const [topProductsData, setTopProductsData] = useState([]);
-  const [loadingTopProducts, setLoadingTopProducts] = useState(true);
-  const [errorTopProducts, setErrorTopProducts] = useState(null);
-
   const API_BASE_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
@@ -122,7 +116,6 @@ function DailyView({ selectedPharmacy, selectedDate }) {
       setDispPie({ percent: null, disp: null, total: null }); setLoadingDispPie(true); setErrorDispPie(null);
       setCombinedChartData([]); setLoadingCombinedChart(true); setErrorCombinedChart(null);
       setYoyComparisonData([]); setLoadingYoyComparison(true); setErrorYoyComparison(null);
-      setTopProductsData([]); setLoadingTopProducts(true); setErrorTopProducts(null);
       return;
     }
 
@@ -135,20 +128,8 @@ function DailyView({ selectedPharmacy, selectedDate }) {
     setLoadingDispPie(true); setErrorDispPie(null); setDispPie({ percent: null, disp: null, total: null });
     setLoadingCombinedChart(true); setErrorCombinedChart(null); setCombinedChartData([]);
     setLoadingYoyComparison(true); setErrorYoyComparison(null); setYoyComparisonData([]);
-    setLoadingTopProducts(true); setErrorTopProducts(null); setTopProductsData([]);
 
     const singleDate = selectedDate; // Use selectedDate for both start and end
-
-    // Fetch Top Products Data
-    apiClient.get(`/api/top_products_by_qty/${singleDate}`)
-      .then(res => {
-        setTopProductsData(res.data);
-        setLoadingTopProducts(false);
-      })
-      .catch(err => {
-        setErrorTopProducts('Error fetching top products data.');
-        setLoadingTopProducts(false);
-      });
 
     // Fetch Daily turnover for KPI card
     apiClient.get(`/api/turnover_for_range/${singleDate}/${singleDate}`, {
@@ -822,15 +803,6 @@ function DailyView({ selectedPharmacy, selectedDate }) {
             No comparison data available.
           </div>
         )}
-      </div>
-
-      {/* New Chart: Top 10 Products */}
-      <div className="mt-6">
-        <TopProductsChart 
-          data={topProductsData} 
-          loading={loadingTopProducts} 
-          error={errorTopProducts} 
-        />
       </div>
     </div>
   );

@@ -1,7 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Date, UniqueConstraint, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, Date, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from datetime import datetime
 
 Base = declarative_base()
 
@@ -71,45 +69,4 @@ class DailyReport(Base):
 
     __table_args__ = (
         UniqueConstraint("pharmacy_code", "report_date", name="_pharmacy_day_uc"),
-    )
-
-
-class Department(Base):
-    __tablename__ = "departments"
-    
-    dept_code = Column(String, primary_key=True)
-    dept_name = Column(String, nullable=False)
-
-    products = relationship("Product", back_populates="department")
-
-
-class Product(Base):
-    __tablename__ = "products"
-    
-    stock_code = Column(String, primary_key=True)
-    description = Column(String, nullable=False)
-    dept_code = Column(String, ForeignKey("departments.dept_code"), nullable=False)
-
-    department = relationship("Department", back_populates="products")
-
-
-class StockSale(Base):
-    __tablename__ = "stock_sales"
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    stock_code = Column(String, ForeignKey("products.stock_code"), nullable=False)
-    sale_date = Column(Date, nullable=False)
-    qty = Column(Float, nullable=False)
-    cost = Column(Float, nullable=False)
-    sell = Column(Float, nullable=False)
-    gp_pct = Column(Float, nullable=False)
-
-    product = relationship("Product")
-
-
-class ProcessedStockSales(Base):
-    __tablename__ = 'processed_stock_sales'
-    id = Column(Integer, primary_key=True)
-    email_id = Column(String, unique=True, nullable=False)
-    filename = Column(String, nullable=False)
-    processed_at = Column(DateTime, default=datetime.utcnow) 
+    ) 

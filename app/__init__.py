@@ -1,23 +1,16 @@
 from flask import Flask
 from flask_cors import CORS
-from .app import api_bp, start_periodic_fetch_once
+import app.app as routes_module # Import the app.py module specifically
 
-def create_app():
-    """Application factory function."""
-    app = Flask(__name__)
+# Create the main Flask application instance
+app = Flask(__name__)
 
-    # Configure CORS
-    CORS(app, resources={r"/api/*": {"origins": "https://webdashfront.onrender.com"}}, supports_credentials=True)
+# Enable CORS for all routes and all origins on this app instance
+CORS(app)
 
-    # Register blueprints
-    app.register_blueprint(api_bp)
-
-    # Start the periodic fetcher only in production
-    start_periodic_fetch_once()
-
-    return app
-
-app = create_app()
+# Register the Blueprint from the imported module
+# Access api_bp as an attribute of routes_module
+app.register_blueprint(routes_module.api_bp)
 
 # The if __name__ == '__main__': block is generally not needed here
 # when using the 'flask run' command with FLASK_APP, as 'flask run'
