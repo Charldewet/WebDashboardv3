@@ -72,6 +72,12 @@ def main():
                 for filepath, report_date_obj, subject in email_iter:
                     try:
                         print(f"  > 1 new email found with subject: '{subject}'", flush=True)
+                        
+                        # Skip forwarded emails that don't contain the report
+                        if "fwd:" in subject.lower():
+                            print(f"  > Skipping forwarded email: '{subject}'", flush=True)
+                            continue
+
                         print(f"[DEBUG] About to process: filepath={filepath}, report_date_obj={report_date_obj}", flush=True)
                         if filepath and os.path.exists(filepath):
                             print(f"[Memory] Before parsing {filepath}: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
