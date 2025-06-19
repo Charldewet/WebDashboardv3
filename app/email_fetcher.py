@@ -90,7 +90,7 @@ def _save_report_content(msg, pharmacy_code, email_date_from_header):
     return saved_body_path
 
 def fetch_emails_last_n_days(pharmacy_config, days=7):
-    """Fetches emails from the last N days and yields (filepath, report_date_obj)."""
+    """Fetches emails from the last N days and yields (filepath, report_date_obj, subject)."""
     mail = None
     try:
         pharmacy_name = pharmacy_config.get('name', pharmacy_config.get('code', 'unknown'))
@@ -130,8 +130,24 @@ def fetch_emails_last_n_days(pharmacy_config, days=7):
                         try:
                             msg = email.message_from_bytes(response_part[1])
                             email_date_str_header = msg["Date"]
+                            subject_header = msg["Subject"]
                             report_date_obj = None
                             
+                            # Decode subject
+                            subject = "No Subject"
+                            try:
+                                decoded_subject = decode_header(subject_header)
+                                # The subject might be split into parts
+                                subject_parts = []
+                                for part, encoding in decoded_subject:
+                                    if isinstance(part, bytes):
+                                        subject_parts.append(part.decode(encoding or 'utf-8', 'ignore'))
+                                    else:
+                                        subject_parts.append(part)
+                                subject = "".join(subject_parts)
+                            except Exception as e:
+                                print(f"Could not decode subject for email on {email_date_str_header}: {e}")
+
                             try:
                                 email_dt_header = email.utils.parsedate_to_datetime(email_date_str_header)
                                 report_date_obj = email_dt_header.date() # This is the date from email header
@@ -141,7 +157,7 @@ def fetch_emails_last_n_days(pharmacy_config, days=7):
                             
                             filepath = _save_report_content(msg, pharmacy_config['code'], report_date_obj)
                             if filepath:
-                                yield filepath, report_date_obj 
+                                yield filepath, report_date_obj, subject
                         except Exception as e:
                             print(f"Error processing email content for {pharmacy_name}: {e}")
                             continue

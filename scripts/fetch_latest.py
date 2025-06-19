@@ -53,7 +53,7 @@ def main():
     try:
         for pharmacy_config in settings.MAILBOXES:
             pharmacy_name = pharmacy_config.get("name", pharmacy_config["code"])
-            print(f"{'[ALL]' if args.all else '[LATEST]'} Now fetching {pharmacy_name}...", flush=True)
+            print(f"Checking for new emails for {pharmacy_name}...", flush=True)
             print(f"[Memory] Before fetching {pharmacy_name}: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
             processed_files_count = 0
             
@@ -69,8 +69,9 @@ def main():
                     email_iter = fetch_emails_last_n_days(pharmacy_config, days=days_to_fetch)
                 
                 # Process emails one by one to avoid memory issues
-                for filepath, report_date_obj in email_iter:
+                for filepath, report_date_obj, subject in email_iter:
                     try:
+                        print(f"  > 1 new email found with subject: '{subject}'", flush=True)
                         print(f"[DEBUG] About to process: filepath={filepath}, report_date_obj={report_date_obj}", flush=True)
                         if filepath and os.path.exists(filepath):
                             print(f"[Memory] Before parsing {filepath}: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2:.2f} MB", flush=True)
@@ -91,7 +92,7 @@ def main():
                                 new_report = DailyReport(**data)
                                 session.add(new_report)
                                 session.commit()
-                                print(f"[SUCCESS] Report data saved to database for {pharmacy_config['code']} - {report_date_obj.strftime('%Y-%m-%d')}")
+                                print(f"  > New data added for {pharmacy_name} for {report_date_obj.strftime('%Y-%m-%d')}", flush=True)
                                 processed_files_count += 1
                                 total_emails_processed += 1
                                 if latest_date is None or report_date_obj > latest_date:
@@ -125,7 +126,7 @@ def main():
                         continue
                         
                 if processed_files_count == 0:
-                    print(f"No new email reports found or processed for {pharmacy_name}.")
+                    print(f"No new data found to be added for {pharmacy_name}.")
                     
             except Exception as e_fetch:
                 print(f"[ERROR] Could not fetch emails for {pharmacy_name}: {e_fetch}")
