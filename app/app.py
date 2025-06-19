@@ -1282,9 +1282,9 @@ def periodic_fetch():
                 )
                 
                 if result.stdout:
-                    print(f"[Periodic Fetch] Script output: {result.stdout[-500:]}", flush=True)  # Only last 500 chars
+                    print(f"[Periodic Fetch] Script output:\n{result.stdout}", flush=True)
                 if result.stderr:
-                    print(f"[Periodic Fetch] Script errors: {result.stderr[-500:]}", flush=True)  # Only last 500 chars
+                    print(f"[Periodic Fetch] Script errors:\n{result.stderr}", flush=True)
                     
                 if result.returncode != 0:
                     print(f"[Periodic Fetch] Script failed with return code: {result.returncode}", flush=True)
