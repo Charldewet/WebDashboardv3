@@ -5,8 +5,14 @@ import app.app as routes_module # Import the app.py module specifically
 # Create the main Flask application instance
 app = Flask(__name__)
 
-# Enable CORS for all routes and all origins on this app instance
-CORS(app)
+# Enable CORS for specific origins
+CORS(app, resources={r"/api/*": {
+    "origins": [
+        "https://webdashfront.onrender.com",
+        "http://localhost:5173",
+        "http://192.168.0.136:5173"
+    ]
+}})
 
 # Register the Blueprint from the imported module
 # Access api_bp as an attribute of routes_module
