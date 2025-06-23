@@ -12,6 +12,7 @@ import gc
 from functools import wraps
 import jwt
 from datetime import datetime, timedelta
+from app import app
 
 # Memory optimization at startup
 def optimize_memory():
@@ -1338,5 +1339,4 @@ def start_periodic_fetch_once():
 start_periodic_fetch_once()
 
 if __name__ == "__main__":
-    from app import app
     app.run(host="0.0.0.0", port=5000) 
