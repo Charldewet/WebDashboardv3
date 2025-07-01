@@ -9,6 +9,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {
     "origins": [
         "https://webdashfront.onrender.com",
+        "https://tlc-dashboard.onrender.com",
         "http://localhost:5173",
         "http://192.168.0.136:5173",
         "http://192.168.68.105:5173",
