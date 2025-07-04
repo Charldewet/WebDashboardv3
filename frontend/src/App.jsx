@@ -40,11 +40,30 @@ function App() {
       apiClient.get('/api/pharmacies')
         .then(response => {
           const fetchedPharmacies = response.data || [];
-          // Transform the array of strings into an array of objects
-          const formattedPharmacies = fetchedPharmacies.map(pharmacyValue => ({
-            value: pharmacyValue,
-            label: `TLC ${pharmacyValue.charAt(0).toUpperCase() + pharmacyValue.slice(1)}`
-          }));
+          
+          // Handle both formats: array of strings and array of objects with code/name
+          const formattedPharmacies = fetchedPharmacies.map(pharmacy => {
+            if (typeof pharmacy === 'string') {
+              // Old format: array of strings
+              return {
+                value: pharmacy,
+                label: `TLC ${pharmacy.charAt(0).toUpperCase() + pharmacy.slice(1)}`
+              };
+            } else if (pharmacy && typeof pharmacy === 'object' && pharmacy.code && pharmacy.name) {
+              // New format: array of objects with code and name
+              return {
+                value: pharmacy.code,
+                label: pharmacy.name
+              };
+            } else {
+              // Fallback for unexpected format
+              console.warn('Unexpected pharmacy format:', pharmacy);
+              return {
+                value: String(pharmacy),
+                label: String(pharmacy)
+              };
+            }
+          });
           
           setPharmacyOptions(formattedPharmacies);
           
