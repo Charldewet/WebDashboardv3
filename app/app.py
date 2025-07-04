@@ -66,7 +66,8 @@ USERS = {
     },
     "user": {
         "password": "password",
-        "pharmacies": ["DUMMY1", "DUMMY2"]
+        "pharmacies": ["reitz", "roos", "villiers", "winterton"],
+        "use_friendly_names": True
     },
     "newuser": {
         "password": "securepassword123",
@@ -76,6 +77,15 @@ USERS = {
         "password": "Elani123",
         "pharmacies": ["villiers"]
     }
+}
+
+# Pharmacy friendly names mapping
+PHARMACY_FRIENDLY_NAMES = {
+    "reitz": "TLC Pharm 1",
+    "roos": "TLC Pharm 2", 
+    "tugela": "TLC Pharm 3",
+    "villiers": "TLC Pharm 4",
+    "winterton": "TLC Pharm 5"
 }
 
 # decorator for verifying the JWT
@@ -143,7 +153,23 @@ def get_pharmacies():
     """Returns the list of pharmacies the user is allowed to see."""
     if not g.current_user:
         return jsonify({"error": "User not found or not authenticated"}), 401
-    return jsonify(g.current_user['pharmacies'])
+    
+    pharmacies = g.current_user['pharmacies']
+    
+    # Check if user should see friendly names
+    if g.current_user.get('use_friendly_names', False):
+        # Return friendly names with pharmacy codes as values
+        friendly_pharmacies = []
+        for pharmacy_code in pharmacies:
+            friendly_name = PHARMACY_FRIENDLY_NAMES.get(pharmacy_code, pharmacy_code)
+            friendly_pharmacies.append({
+                "code": pharmacy_code,
+                "name": friendly_name
+            })
+        return jsonify(friendly_pharmacies)
+    else:
+        # Return pharmacy codes as before
+        return jsonify(pharmacies)
 
 @api_bp.route('/turnover', methods=['GET'])
 @token_required
