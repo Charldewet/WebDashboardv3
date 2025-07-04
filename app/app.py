@@ -502,6 +502,80 @@ def get_daily_scripts_dispensed_for_range(start_date, end_date):
     session.close()
     return jsonify({"pharmacy": pharmacy, "daily_scripts_dispensed": daily_scripts})
 
+@api_bp.route('/avg_script_metrics_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
+@authorize_pharmacy
+@memory_cleanup
+def get_avg_script_metrics_for_range(start_date, end_date):
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    session = create_session()
+    query = session.query(DailyReport).filter(
+        DailyReport.pharmacy_code == pharmacy,
+        DailyReport.report_date >= start_date,
+        DailyReport.report_date <= end_date
+    )
+    reports = query.all()
+    valid_reports = [r for r in reports if r.avg_script_value_today and r.avg_script_value_today > 0]
+    if valid_reports:
+        avg_script_value = sum(r.avg_script_value_today for r in valid_reports) / len(valid_reports)
+        avg_items_per_script = sum(r.avg_items_per_script_today for r in valid_reports) / len(valid_reports)
+    else:
+        avg_script_value = 0
+        avg_items_per_script = 0
+    session.close()
+    return jsonify({
+        'pharmacy': pharmacy,
+        'avg_script_value': round(avg_script_value, 2),
+        'avg_items_per_script': round(avg_items_per_script, 2),
+        'days_counted': len(valid_reports)
+    })
+
+@api_bp.route('/daily_avg_script_value_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
+@authorize_pharmacy
+@memory_cleanup
+def get_daily_avg_script_value_for_range(start_date, end_date):
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    session = create_session()
+    query = session.query(DailyReport).filter(
+        DailyReport.pharmacy_code == pharmacy,
+        DailyReport.report_date >= start_date,
+        DailyReport.report_date <= end_date
+    ).order_by(DailyReport.report_date)
+    reports = query.all()
+    daily_avg_script_value = [
+        {
+            "date": r.report_date.strftime('%Y-%m-%d'),
+            "avg_script_value": round(r.avg_script_value_today, 2) if r.avg_script_value_today else 0
+        }
+        for r in reports
+    ]
+    session.close()
+    return jsonify({"pharmacy": pharmacy, "daily_avg_script_value": daily_avg_script_value})
+
+@api_bp.route('/daily_avg_items_per_script_for_range/<start_date>/<end_date>', methods=['GET'])
+@token_required
+@authorize_pharmacy
+@memory_cleanup
+def get_daily_avg_items_per_script_for_range(start_date, end_date):
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    session = create_session()
+    query = session.query(DailyReport).filter(
+        DailyReport.pharmacy_code == pharmacy,
+        DailyReport.report_date >= start_date,
+        DailyReport.report_date <= end_date
+    ).order_by(DailyReport.report_date)
+    reports = query.all()
+    daily_avg_items_per_script = [
+        {
+            "date": r.report_date.strftime('%Y-%m-%d'),
+            "avg_items_per_script": round(r.avg_items_per_script_today, 2) if r.avg_items_per_script_today else 0
+        }
+        for r in reports
+    ]
+    session.close()
+    return jsonify({"pharmacy": pharmacy, "daily_avg_items_per_script": daily_avg_items_per_script})
+
 @api_bp.route('/daily_gp_percent_for_range/<start_date>/<end_date>', methods=['GET'])
 @token_required
 @authorize_pharmacy
@@ -575,54 +649,28 @@ def get_daily_dispensary_turnover_for_range(start_date, end_date):
 def get_opening_stock_for_range(start_date, end_date):
     pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
     session = create_session()
-    
-    from datetime import datetime, timedelta
-    import calendar
-    
+    from datetime import datetime
     try:
-        # Parse the start_date to get the month and year
-        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
-        year = start_date_obj.year
-        month = start_date_obj.month
-        
-        # Get the last day of the month
-        last_day_of_month = calendar.monthrange(year, month)[1]
-        
-        # Start checking from the 1st day of the month
-        current_day = 1
-        opening_stock = 0
-        actual_date_used = start_date
-        
-        while current_day <= last_day_of_month:
-            # Format the current date we're checking
-            check_date = f"{year}-{month:02d}-{current_day:02d}"
-            
-            # Query for this specific date
-            query = session.query(DailyReport).filter(
-                DailyReport.pharmacy_code == pharmacy,
-                DailyReport.report_date == check_date
-            ).first()
-            
-            # Check if we found a valid opening stock value
-            if query and query.opening_stock_today and query.opening_stock_today > 0:
-                opening_stock = query.opening_stock_today
-                actual_date_used = check_date
-                break
-            
-            # Move to the next day
-            current_day += 1
-        
+        # Parse the start_date
+        date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+        # Query for this specific date
+        report = session.query(DailyReport).filter(
+            DailyReport.pharmacy_code == pharmacy,
+            DailyReport.report_date == start_date
+        ).first()
+        if report and report.opening_stock_today and report.opening_stock_today > 0:
+            opening_stock = report.opening_stock_today
+            success = True
+        else:
+            opening_stock = 0
+            success = False
         session.close()
-        
         return jsonify({
             'pharmacy': pharmacy,
             'opening_stock': round(opening_stock, 2),
             'date_requested': start_date,
-            'actual_date_used': actual_date_used,
-            'days_checked': current_day if opening_stock > 0 else last_day_of_month,
-            'success': opening_stock > 0
+            'success': success
         })
-        
     except ValueError as e:
         session.close()
         return jsonify({
