@@ -11,7 +11,7 @@ from app.models import DailyReport
 
 # --- Configuration ---
 PHARMACY_CODE_TO_DELETE = "reitz"
-DATE_TO_DELETE_STR = "2025-06-18"
+DATE_TO_DELETE_STR = "2025-07-06"
 # ---------------------
 
 def delete_data_for_date():

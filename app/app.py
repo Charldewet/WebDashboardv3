@@ -1,5 +1,5 @@
 from flask import jsonify, request, Blueprint, Flask, g
-from app.models import DailyReport
+from app.models import DailyReport, Department, StockItem, DailyStockSales
 from app.db import create_session, cleanup_db_sessions
 import subprocess
 import threading
@@ -1246,6 +1246,319 @@ def health_check():
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(e)
         }), 500
+
+# ============================================================================
+# STOCK MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+@api_bp.route('/departments', methods=['GET'])
+@token_required
+@memory_cleanup
+def get_departments():
+    """Get all departments"""
+    session = create_session()
+    try:
+        departments = session.query(Department).filter_by(is_active=1).all()
+        return jsonify([{
+            'id': dept.id,
+            'department_code': dept.department_code,
+            'department_name': dept.department_name,
+            'description': dept.description
+        } for dept in departments])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@api_bp.route('/departments', methods=['POST'])
+@token_required
+@memory_cleanup
+def create_department():
+    """Create a new department"""
+    data = request.get_json()
+    if not data or not data.get('department_code') or not data.get('department_name'):
+        return jsonify({'error': 'Missing required fields: department_code, department_name'}), 400
+    
+    session = create_session()
+    try:
+        # Check if department already exists
+        existing = session.query(Department).filter_by(department_code=data['department_code']).first()
+        if existing:
+            return jsonify({'error': 'Department code already exists'}), 400
+        
+        department = Department(
+            department_code=data['department_code'],
+            department_name=data['department_name'],
+            description=data.get('description', ''),
+            is_active=1
+        )
+        session.add(department)
+        session.commit()
+        
+        return jsonify({
+            'id': department.id,
+            'department_code': department.department_code,
+            'department_name': department.department_name,
+            'description': department.description
+        }), 201
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@api_bp.route('/stock-items', methods=['GET'])
+@token_required
+@authorize_pharmacy
+@memory_cleanup
+def get_stock_items():
+    """Get stock items for the authorized pharmacy"""
+    pharmacy = request.headers.get('X-Pharmacy')
+    session = create_session()
+    try:
+        items = session.query(StockItem).filter_by(
+            pharmacy_code=pharmacy,
+            is_active=1
+        ).all()
+        
+        return jsonify([{
+            'id': item.id,
+            'stock_code': item.stock_code,
+            'stock_name': item.stock_name,
+            'department_code': item.department.department_code,
+            'department_name': item.department.department_name,
+            'annual_sales_qty': item.annual_sales_qty,
+            'annual_sales_value': item.annual_sales_value,
+            'avg_monthly_sales': item.avg_monthly_sales,
+            'unit_cost': item.unit_cost,
+            'unit_price': item.unit_price,
+            'last_updated': item.last_updated.strftime('%Y-%m-%d')
+        } for item in items])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@api_bp.route('/stock-items', methods=['POST'])
+@token_required
+@authorize_pharmacy
+@memory_cleanup
+def create_stock_item():
+    """Create a new stock item"""
+    data = request.get_json()
+    pharmacy = request.headers.get('X-Pharmacy')
+    
+    required_fields = ['stock_code', 'stock_name', 'department_code']
+    if not data or not all(field in data for field in required_fields):
+        return jsonify({'error': f'Missing required fields: {", ".join(required_fields)}'}), 400
+    
+    session = create_session()
+    try:
+        # Get department
+        department = session.query(Department).filter_by(department_code=data['department_code']).first()
+        if not department:
+            return jsonify({'error': 'Department not found'}), 400
+        
+        # Check if stock item already exists
+        existing = session.query(StockItem).filter_by(
+            stock_code=data['stock_code'],
+            pharmacy_code=pharmacy
+        ).first()
+        if existing:
+            return jsonify({'error': 'Stock item already exists for this pharmacy'}), 400
+        
+        # Calculate average monthly sales
+        annual_qty = float(data.get('annual_sales_qty', 0))
+        avg_monthly = annual_qty / 12 if annual_qty > 0 else 0
+        
+        stock_item = StockItem(
+            stock_code=data['stock_code'],
+            stock_name=data['stock_name'],
+            department_id=department.id,
+            pharmacy_code=pharmacy,
+            annual_sales_qty=annual_qty,
+            annual_sales_value=float(data.get('annual_sales_value', 0)),
+            avg_monthly_sales=avg_monthly,
+            unit_cost=float(data.get('unit_cost', 0)),
+            unit_price=float(data.get('unit_price', 0)),
+            last_updated=date.today()
+        )
+        session.add(stock_item)
+        session.commit()
+        
+        return jsonify({
+            'id': stock_item.id,
+            'stock_code': stock_item.stock_code,
+            'stock_name': stock_item.stock_name,
+            'department_code': department.department_code,
+            'pharmacy_code': stock_item.pharmacy_code
+        }), 201
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@api_bp.route('/daily-stock-sales/<start_date>/<end_date>', methods=['GET'])
+@token_required
+@authorize_pharmacy
+@memory_cleanup
+def get_daily_stock_sales(start_date, end_date):
+    """Get daily stock sales for a date range"""
+    pharmacy = request.headers.get('X-Pharmacy')
+    session = create_session()
+    try:
+        sales = session.query(DailyStockSales).join(StockItem).filter(
+            DailyStockSales.pharmacy_code == pharmacy,
+            DailyStockSales.report_date >= start_date,
+            DailyStockSales.report_date <= end_date
+        ).all()
+        
+        return jsonify([{
+            'id': sale.id,
+            'stock_code': sale.stock_item.stock_code,
+            'stock_name': sale.stock_item.stock_name,
+            'department_code': sale.stock_item.department.department_code,
+            'report_date': sale.report_date.strftime('%Y-%m-%d'),
+            'daily_sales_qty': sale.daily_sales_qty,
+            'daily_sales_value': sale.daily_sales_value,
+            'daily_cost_of_sales': sale.daily_cost_of_sales,
+            'daily_gross_profit': sale.daily_gross_profit,
+            'daily_gross_profit_percent': sale.daily_gross_profit_percent,
+            'opening_stock': sale.opening_stock,
+            'closing_stock': sale.closing_stock,
+            'stock_value': sale.stock_value,
+            'transactions_count': sale.transactions_count,
+            'avg_unit_price': sale.avg_unit_price
+        } for sale in sales])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@api_bp.route('/daily-stock-sales', methods=['POST'])
+@token_required
+@authorize_pharmacy
+@memory_cleanup
+def create_daily_stock_sales():
+    """Create or update daily stock sales data"""
+    data = request.get_json()
+    pharmacy = request.headers.get('X-Pharmacy')
+    
+    if not data or not data.get('stock_code') or not data.get('report_date'):
+        return jsonify({'error': 'Missing required fields: stock_code, report_date'}), 400
+    
+    session = create_session()
+    try:
+        # Get stock item
+        stock_item = session.query(StockItem).filter_by(
+            stock_code=data['stock_code'],
+            pharmacy_code=pharmacy
+        ).first()
+        if not stock_item:
+            return jsonify({'error': 'Stock item not found'}), 400
+        
+        # Parse date
+        try:
+            report_date = datetime.strptime(data['report_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        # Check if record already exists
+        existing = session.query(DailyStockSales).filter_by(
+            stock_item_id=stock_item.id,
+            pharmacy_code=pharmacy,
+            report_date=report_date
+        ).first()
+        
+        # Calculate derived values
+        daily_sales_qty = float(data.get('daily_sales_qty', 0))
+        daily_sales_value = float(data.get('daily_sales_value', 0))
+        unit_cost = stock_item.unit_cost
+        
+        daily_cost_of_sales = daily_sales_qty * unit_cost
+        daily_gross_profit = daily_sales_value - daily_cost_of_sales
+        daily_gross_profit_percent = (daily_gross_profit / daily_sales_value * 100) if daily_sales_value > 0 else 0
+        
+        sales_data = {
+            'stock_item_id': stock_item.id,
+            'pharmacy_code': pharmacy,
+            'report_date': report_date,
+            'daily_sales_qty': daily_sales_qty,
+            'daily_sales_value': daily_sales_value,
+            'daily_cost_of_sales': daily_cost_of_sales,
+            'daily_gross_profit': daily_gross_profit,
+            'daily_gross_profit_percent': daily_gross_profit_percent,
+            'opening_stock': float(data.get('opening_stock', 0)),
+            'closing_stock': float(data.get('closing_stock', 0)),
+            'stock_value': float(data.get('stock_value', 0)),
+            'transactions_count': int(data.get('transactions_count', 0)),
+            'avg_unit_price': float(data.get('avg_unit_price', 0))
+        }
+        
+        if existing:
+            # Update existing record
+            for key, value in sales_data.items():
+                setattr(existing, key, value)
+            message = "Updated daily sales record"
+        else:
+            # Create new record
+            daily_sales = DailyStockSales(**sales_data)
+            session.add(daily_sales)
+            message = "Created daily sales record"
+        
+        session.commit()
+        return jsonify({
+            'success': True,
+            'message': message,
+            'stock_code': data['stock_code'],
+            'report_date': data['report_date']
+        })
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@api_bp.route('/stock-summary/<start_date>/<end_date>', methods=['GET'])
+@token_required
+@authorize_pharmacy
+@memory_cleanup
+def get_stock_summary(start_date, end_date):
+    """Get stock summary for a date range"""
+    pharmacy = request.headers.get('X-Pharmacy')
+    session = create_session()
+    try:
+        # Get total sales and stock value
+        sales_data = session.query(
+            DailyStockSales.daily_sales_qty,
+            DailyStockSales.daily_sales_value,
+            DailyStockSales.closing_stock,
+            DailyStockSales.stock_value
+        ).join(StockItem).filter(
+            DailyStockSales.pharmacy_code == pharmacy,
+            DailyStockSales.report_date >= start_date,
+            DailyStockSales.report_date <= end_date
+        ).all()
+        
+        total_sales_qty = sum(sale.daily_sales_qty for sale in sales_data)
+        total_sales_value = sum(sale.daily_sales_value for sale in sales_data)
+        avg_closing_stock = sum(sale.closing_stock for sale in sales_data) / len(sales_data) if sales_data else 0
+        avg_stock_value = sum(sale.stock_value for sale in sales_data) / len(sales_data) if sales_data else 0
+        
+        return jsonify({
+            'pharmacy': pharmacy,
+            'date_range': f"{start_date} to {end_date}",
+            'total_sales_qty': total_sales_qty,
+            'total_sales_value': round(total_sales_value, 2),
+            'avg_closing_stock': round(avg_closing_stock, 2),
+            'avg_stock_value': round(avg_stock_value, 2),
+            'records_count': len(sales_data)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
 
 @api_bp.route('/force_update', methods=['POST'])
 @token_required
