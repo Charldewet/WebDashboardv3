@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '../api'; // Import the new api client
 import { PieChart, Pie, Cell, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import LowGPProductsView from './LowGPProductsView';
 
 // Custom Tooltip for Monthly Inventory Chart
 const CustomInventoryTooltip = ({ active, payload, label }) => {
@@ -444,6 +445,9 @@ function StockView({ selectedPharmacy, selectedDate }) {
           )}
         </div>
       </div>
+
+      {/* Low GP Products Component */}
+      <LowGPProductsView selectedPharmacy={selectedPharmacy} selectedDate={selectedDate} />
     </div>
   );
 }

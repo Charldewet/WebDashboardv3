@@ -1712,6 +1712,54 @@ def periodic_fetch():
         print("=== [Periodic Fetch] Loop End, sleeping 600s ===", flush=True)
         time.sleep(600)
 
+@api_bp.route('/low_gp_products/<date>', methods=['GET'])
+@token_required
+@authorize_pharmacy
+@memory_cleanup
+def get_low_gp_products(date):
+    """Get products with GP percentage below a threshold for a specific date."""
+    pharmacy = request.headers.get('X-Pharmacy') or request.args.get('pharmacy')
+    threshold = float(request.args.get('threshold', 20))  # Default threshold of 20%
+    
+    session = create_session()
+    try:
+        # Query daily stock sales for the specific date and pharmacy
+        query = session.query(DailyStockSales).join(StockItem).filter(
+            DailyStockSales.pharmacy_code == pharmacy,
+            DailyStockSales.report_date == date,
+            DailyStockSales.daily_gross_profit_percent < threshold,
+            DailyStockSales.daily_gross_profit_percent.isnot(None),
+            DailyStockSales.daily_sales_qty > 0  # Only include items that had sales
+        ).order_by(DailyStockSales.daily_gross_profit_percent.asc())
+        
+        results = query.all()
+        
+        products = []
+        for item in results:
+            products.append({
+                'stock_code': item.stock_item.stock_code,
+                'description': item.stock_item.stock_name,
+                'on_hand': item.closing_stock,
+                'sales_qty': item.daily_sales_qty,
+                'sales_value': item.daily_sales_value,
+                'gp_percent': item.daily_gross_profit_percent,
+                'gp_value': item.daily_gross_profit
+            })
+        
+        return jsonify({
+            'pharmacy': pharmacy,
+            'date': date,
+            'threshold': threshold,
+            'count': len(products),
+            'products': products
+        })
+        
+    except Exception as e:
+        print(f"[Low GP Products] Error: {e}", flush=True)
+        return jsonify({'error': 'Failed to fetch low GP products'}), 500
+    finally:
+        session.close()
+
 def start_periodic_fetch_once():
     # Only start in production environments and only in one process
     if os.environ.get("RENDER") == "true":
