@@ -10,6 +10,7 @@ CORS(app, resources={r"/api/*": {
     "origins": [
         "https://webdashfront.onrender.com",
         "https://tlc-dashboard.onrender.com",
+        "https://tlc-dashboard-frontend.onrender.com",
         "https://www.tlcdashboard.co.za",
         "http://localhost:5173",
         "http://192.168.0.136:5173",
